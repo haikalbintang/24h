@@ -43,7 +43,13 @@ export default function App({ runtime }: AppProps) {
           </p>
         </section>
 
-        <LabelsSection />
+        <LabelsSection
+          anchor={anchor}
+          now={now}
+          getNow={runtime.clock.now}
+          dayStart={day.dayStart}
+          dayEnd={day.dayEnd}
+        />
       </div>
     </main>
   )

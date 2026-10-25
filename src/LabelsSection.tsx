@@ -1,15 +1,26 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import ColourRadioGroup from './ColourRadioGroup'
-import {
-  getLabelColour,
-  getLabelNameError,
-  LABEL_COLOURS,
-} from './labels'
+import { getLabelColour, getLabelNameError, LABEL_COLOURS } from './labels'
 import type { Label, LabelColourId, LabelId } from './labels'
+import BlocksSection from './BlocksSection'
+import { useBlocks } from './useBlocks'
 
-export default function LabelsSection() {
+interface LabelsSectionProps {
+  anchor: number
+  now: number
+  getNow: () => number
+  dayStart: number
+  dayEnd: number
+}
+
+export default function LabelsSection({
+  anchor,
+  now,
+  getNow,
+  dayStart,
+  dayEnd,
+}: LabelsSectionProps) {
   const [labels, setLabels] = useState<Label[]>([])
-  const [activeLabelId, setActiveLabelId] = useState<LabelId | null>(null)
   const nextLabelId = useRef(1)
   const [newLabelName, setNewLabelName] = useState('')
   const [newLabelColourId, setNewLabelColourId] = useState<LabelColourId>(
@@ -23,12 +34,14 @@ export default function LabelsSection() {
   )
   const [editError, setEditError] = useState<string | null>(null)
 
+  const { blocks, activeLabelId, selectLabel, toggleLabel } = useBlocks({
+    anchor,
+    now,
+    getNow,
+  })
+
   const activeLabel =
     labels.find((label) => label.id === activeLabelId) ?? null
-
-  const toggleLabel = (labelId: LabelId) => {
-    setActiveLabelId((current) => (current === labelId ? null : labelId))
-  }
 
   const startEditingLabel = (label: Label) => {
     setEditingLabelId(label.id)
@@ -88,8 +101,8 @@ export default function LabelsSection() {
     setCreateError(null)
   }
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
+  const onKeyDown = useCallback(
+    (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey) {
         return
       }
@@ -112,14 +125,17 @@ export default function LabelsSection() {
 
       const label = labels[position - 1]
       if (label) {
-        setActiveLabelId(label.id)
+        selectLabel(label.id)
       }
-    }
+    },
+    [labels, selectLabel],
+  )
 
+  useEffect(() => {
     window.addEventListener('keydown', onKeyDown)
 
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [labels])
+  }, [onKeyDown])
 
   return (
     <section
@@ -337,6 +353,14 @@ export default function LabelsSection() {
           Create label
         </button>
       </form>
+
+      <BlocksSection
+        blocks={blocks}
+        labels={labels}
+        now={now}
+        dayStart={dayStart}
+        dayEnd={dayEnd}
+      />
     </section>
   )
 }

@@ -38,6 +38,7 @@ export function getDaySnapshot(anchor: number, now: number) {
   return {
     dayIndex,
     dayStart,
+    dayEnd: dayStart + DAY_MS,
     midpoint,
     elapsedInDay,
     clock: formatClock(elapsedInDay),
