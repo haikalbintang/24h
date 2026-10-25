@@ -1,6 +1,7 @@
 import { useState, useSyncExternalStore } from 'react'
 import { resolveAnchor } from './anchor'
 import { getDaySnapshot } from './day'
+import LabelsSection from './LabelsSection'
 import type { Runtime } from './runtime'
 
 export interface AppProps {
@@ -41,6 +42,8 @@ export default function App({ runtime }: AppProps) {
             {day.clock}
           </p>
         </section>
+
+        <LabelsSection />
       </div>
     </main>
   )
