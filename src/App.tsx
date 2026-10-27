@@ -15,6 +15,7 @@ import {
   type PersistedState,
 } from "./persistence";
 import LabelsSection from "./LabelsSection";
+import TotalsSection from "./TotalsSection";
 import ReopenPrompt from "./ReopenPrompt";
 import { useBlocks } from "./useBlocks";
 import type { Runtime } from "./runtime";
@@ -25,14 +26,14 @@ export interface AppProps {
 
 export default function App({ runtime }: AppProps) {
   const [persisted, setPersisted] = useState<PersistedState>(() =>
-    loadPersistedState(runtime, runtime.clock.now()),
+    loadPersistedState(runtime, runtime.clock.now())
   );
 
   const anchor = persisted.anchor;
   const now = useSyncExternalStore(
     runtime.clock.subscribe,
     runtime.clock.now,
-    runtime.clock.now,
+    runtime.clock.now
   );
   const day = getDaySnapshot(anchor, now);
 
@@ -40,9 +41,9 @@ export default function App({ runtime }: AppProps) {
     Math.max(
       0,
       ...persisted.labels.map(
-        (label) => Number(label.id.slice("label-".length)) || 0,
-      ),
-    ) + 1,
+        (label) => Number(label.id.slice("label-".length)) || 0
+      )
+    ) + 1
   );
 
   const {
@@ -74,7 +75,7 @@ export default function App({ runtime }: AppProps) {
         theme: persisted.theme,
       });
     },
-    [runtime, persisted, blocks, activeLabelId],
+    [runtime, persisted, blocks, activeLabelId]
   );
 
   useEffect(() => {
@@ -93,7 +94,10 @@ export default function App({ runtime }: AppProps) {
     });
   }, [runtime, recordHeartbeat, saveState]);
 
-  const createLabel = (name: string, colourId: LabelColourId): string | null => {
+  const createLabel = (
+    name: string,
+    colourId: LabelColourId
+  ): string | null => {
     const error = getLabelNameError(name, persisted.labels);
 
     if (error) {
@@ -114,7 +118,7 @@ export default function App({ runtime }: AppProps) {
   const renameLabel = (
     labelId: LabelId,
     name: string,
-    colourId: LabelColourId,
+    colourId: LabelColourId
   ): string | null => {
     const error = getLabelNameError(name, persisted.labels, labelId);
 
@@ -125,7 +129,7 @@ export default function App({ runtime }: AppProps) {
     setPersisted((current) => ({
       ...current,
       labels: current.labels.map((label) =>
-        label.id === labelId ? { ...label, name, colourId } : label,
+        label.id === labelId ? { ...label, name, colourId } : label
       ),
     }));
 
@@ -173,6 +177,14 @@ export default function App({ runtime }: AppProps) {
           onToggleLabel={toggleLabel}
           onCreateLabel={createLabel}
           onRenameLabel={renameLabel}
+        />
+        <TotalsSection
+          labels={persisted.labels}
+          blocks={blocks}
+          anchor={anchor}
+          now={now}
+          dayStart={day.dayStart}
+          dayEnd={day.dayEnd}
         />
       </div>
 
