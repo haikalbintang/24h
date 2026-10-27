@@ -1,141 +1,136 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import ColourRadioGroup from './ColourRadioGroup'
-import { getLabelColour, getLabelNameError, LABEL_COLOURS } from './labels'
-import type { Label, LabelColourId, LabelId } from './labels'
-import BlocksSection from './BlocksSection'
-import { useBlocks } from './useBlocks'
+import { useCallback, useEffect, useState } from "react";
+import ColourRadioGroup from "./ColourRadioGroup";
+import { getLabelColour, LABEL_COLOURS } from "./labels";
+import type { Label, LabelColourId, LabelId } from "./labels";
+import BlocksSection from "./BlocksSection";
+import type { Block } from "./blocks";
 
 interface LabelsSectionProps {
-  anchor: number
-  now: number
-  getNow: () => number
-  dayStart: number
-  dayEnd: number
+  now: number;
+  dayStart: number;
+  dayEnd: number;
+  labels: Label[];
+  activeLabelId: LabelId | null;
+  dynamicBlocks: Block[];
+  onSelectLabel: (labelId: LabelId | null) => void;
+  onToggleLabel: (labelId: LabelId) => void;
+  onCreateLabel: (name: string, colourId: LabelColourId) => string | null;
+  onRenameLabel: (
+    labelId: LabelId,
+    name: string,
+    colourId: LabelColourId,
+  ) => string | null;
 }
 
 export default function LabelsSection({
-  anchor,
   now,
-  getNow,
   dayStart,
   dayEnd,
+  labels,
+  activeLabelId,
+  dynamicBlocks,
+  onSelectLabel,
+  onToggleLabel,
+  onCreateLabel,
+  onRenameLabel,
 }: LabelsSectionProps) {
-  const [labels, setLabels] = useState<Label[]>([])
-  const nextLabelId = useRef(1)
-  const [newLabelName, setNewLabelName] = useState('')
+  const [newLabelName, setNewLabelName] = useState("");
   const [newLabelColourId, setNewLabelColourId] = useState<LabelColourId>(
     LABEL_COLOURS[0].id,
-  )
-  const [createError, setCreateError] = useState<string | null>(null)
-  const [editingLabelId, setEditingLabelId] = useState<LabelId | null>(null)
-  const [editLabelName, setEditLabelName] = useState('')
+  );
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [editingLabelId, setEditingLabelId] = useState<LabelId | null>(null);
+  const [editLabelName, setEditLabelName] = useState("");
   const [editLabelColourId, setEditLabelColourId] = useState<LabelColourId>(
     LABEL_COLOURS[0].id,
-  )
-  const [editError, setEditError] = useState<string | null>(null)
-
-  const { blocks, activeLabelId, selectLabel, toggleLabel } = useBlocks({
-    anchor,
-    now,
-    getNow,
-  })
+  );
+  const [editError, setEditError] = useState<string | null>(null);
 
   const activeLabel =
-    labels.find((label) => label.id === activeLabelId) ?? null
+    labels.find((label) => label.id === activeLabelId) ?? null;
 
   const startEditingLabel = (label: Label) => {
-    setEditingLabelId(label.id)
-    setEditLabelName(label.name)
-    setEditLabelColourId(label.colourId)
-    setEditError(null)
-  }
+    setEditingLabelId(label.id);
+    setEditLabelName(label.name);
+    setEditLabelColourId(label.colourId);
+    setEditError(null);
+  };
 
   const cancelEditingLabel = () => {
-    setEditingLabelId(null)
-    setEditError(null)
-  }
+    setEditingLabelId(null);
+    setEditError(null);
+  };
 
   const saveLabel = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
+    event.preventDefault();
 
     if (editingLabelId === null) {
-      return
+      return;
     }
 
-    const name = editLabelName.trim()
-    const error = getLabelNameError(name, labels, editingLabelId)
+    const name = editLabelName.trim();
+    const error = onRenameLabel(editingLabelId, name, editLabelColourId);
 
     if (error) {
-      setEditError(error)
-      return
+      setEditError(error);
+      return;
     }
 
-    setLabels((current) =>
-      current.map((label) =>
-        label.id === editingLabelId
-          ? { ...label, name, colourId: editLabelColourId }
-          : label,
-      ),
-    )
-    setEditingLabelId(null)
-    setEditError(null)
-  }
+    setEditingLabelId(null);
+    setEditError(null);
+  };
 
   const createLabel = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
+    event.preventDefault();
 
-    const name = newLabelName.trim()
-    const error = getLabelNameError(name, labels)
+    const name = newLabelName.trim();
+    const error = onCreateLabel(name, newLabelColourId);
 
     if (error) {
-      setCreateError(error)
-      return
+      setCreateError(error);
+      return;
     }
 
-    setLabels((current) => [
-      ...current,
-      { id: `label-${nextLabelId.current++}`, name, colourId: newLabelColourId },
-    ])
-    setNewLabelName('')
-    setNewLabelColourId(LABEL_COLOURS[0].id)
-    setCreateError(null)
-  }
+    setNewLabelName("");
+    setNewLabelColourId(LABEL_COLOURS[0].id);
+    setCreateError(null);
+  };
 
   const onKeyDown = useCallback(
     (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey) {
-        return
+        return;
       }
 
-      const target = event.target
+      const target = event.target;
       if (
         target instanceof HTMLElement &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.tagName === 'SELECT' ||
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
           target.isContentEditable)
       ) {
-        return
+        return;
       }
 
-      const position = Number(event.key)
+      const position = Number(event.key);
       if (!Number.isInteger(position) || position < 1 || position > 9) {
-        return
+        return;
       }
 
-      const label = labels[position - 1]
+      const label = labels[position - 1];
       if (label) {
-        selectLabel(label.id)
+        onSelectLabel(label.id);
       }
     },
-    [labels, selectLabel],
-  )
+    [labels, onSelectLabel],
+  );
 
   useEffect(() => {
-    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener("keydown", onKeyDown);
 
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onKeyDown])
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onKeyDown]);
 
   return (
     <section
@@ -153,7 +148,7 @@ export default function LabelsSection({
           <p
             role="status"
             aria-label="Active label"
-            aria-describedby={activeLabel ? 'active-label-colour' : undefined}
+            aria-describedby={activeLabel ? "active-label-colour" : undefined}
             className="flex items-center gap-2 text-lg font-medium text-neutral-100"
           >
             {activeLabel ? (
@@ -168,7 +163,7 @@ export default function LabelsSection({
                 {activeLabel.name}
               </>
             ) : (
-              'Unlabeled'
+              "Unlabeled"
             )}
           </p>
           {activeLabel ? (
@@ -184,7 +179,7 @@ export default function LabelsSection({
       ) : (
         <ul aria-label="Labels" className="flex flex-wrap gap-3">
           {labels.map((label) => {
-            const colour = getLabelColour(label.colourId)
+            const colour = getLabelColour(label.colourId);
 
             return (
               <li key={label.id}>
@@ -192,7 +187,7 @@ export default function LabelsSection({
                   type="button"
                   aria-pressed={activeLabelId === label.id}
                   aria-describedby={`label-${label.id}-colour`}
-                  onClick={() => toggleLabel(label.id)}
+                  onClick={() => onToggleLabel(label.id)}
                   className="flex items-center gap-2 rounded-full border border-neutral-700 bg-neutral-900 px-4 py-2 text-sm font-medium text-neutral-200 hover:border-neutral-500 aria-pressed:border-neutral-200 aria-pressed:bg-neutral-100 aria-pressed:text-neutral-950"
                 >
                   <span
@@ -206,7 +201,7 @@ export default function LabelsSection({
                   {colour.name}
                 </span>
               </li>
-            )
+            );
           })}
         </ul>
       )}
@@ -222,7 +217,7 @@ export default function LabelsSection({
         ) : (
           <ul aria-label="Label manager" className="grid gap-3">
             {labels.map((label) => {
-              const colour = getLabelColour(label.colourId)
+              const colour = getLabelColour(label.colourId);
 
               return (
                 <li
@@ -247,8 +242,8 @@ export default function LabelsSection({
                           value={editLabelName}
                           aria-invalid={editError !== null}
                           onChange={(event) => {
-                            setEditLabelName(event.target.value)
-                            setEditError(null)
+                            setEditLabelName(event.target.value);
+                            setEditError(null);
                           }}
                           className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-neutral-400"
                         />
@@ -304,7 +299,7 @@ export default function LabelsSection({
                     </div>
                   )}
                 </li>
-              )
+              );
             })}
           </ul>
         )}
@@ -330,8 +325,8 @@ export default function LabelsSection({
             value={newLabelName}
             aria-invalid={createError !== null}
             onChange={(event) => {
-              setNewLabelName(event.target.value)
-              setCreateError(null)
+              setNewLabelName(event.target.value);
+              setCreateError(null);
             }}
             className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-neutral-400"
           />
@@ -355,12 +350,12 @@ export default function LabelsSection({
       </form>
 
       <BlocksSection
-        blocks={blocks}
+        blocks={dynamicBlocks}
         labels={labels}
         now={now}
         dayStart={dayStart}
         dayEnd={dayEnd}
       />
     </section>
-  )
+  );
 }

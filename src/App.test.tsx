@@ -1,124 +1,140 @@
-import { act, render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
-import App from './App'
-import { createFakeStorage, createTestRuntime } from './test/runtime'
+import { act, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import App from "./App";
+import { createFakeStorage, createTestRuntime } from "./test/runtime";
+import { createBrowserRuntime } from "./runtime";
 
-const SECOND_MS = 1000
-const MINUTE_MS = 60 * SECOND_MS
-const HOUR_MS = 60 * MINUTE_MS
-const DAY_MS = 24 * HOUR_MS
+const SECOND_MS = 1000;
+const MINUTE_MS = 60 * SECOND_MS;
+const HOUR_MS = 60 * MINUTE_MS;
+const DAY_MS = 24 * HOUR_MS;
 
-const at = (iso: string) => new Date(iso).getTime()
-const dayClock = () => screen.getByRole('timer', { name: 'Day clock' })
+const at = (iso: string) => new Date(iso).getTime();
+const dayClock = () => screen.getByRole("timer", { name: "Day clock" });
 
-describe('Day clock', () => {
-  it('shows elapsed time since the local midnight before first launch', () => {
-    const runtime = createTestRuntime(at('2026-03-08T05:30:00.000Z'))
+describe("Day clock", () => {
+  it("renders with the browser clock without repeatedly updating", () => {
+    let timestamp = at("2026-03-08T05:30:00.000Z");
+    const dateNow = vi.spyOn(Date, "now").mockImplementation(() => timestamp++);
 
-    render(<App runtime={runtime} />)
+    try {
+      const runtime = createBrowserRuntime();
 
-    expect(dayClock()).toHaveTextContent('00:30:00')
-    expect(screen.getByText('Mar 8, 2026')).toBeInTheDocument()
-  })
+      render(<App runtime={runtime} />);
 
-  it('renders a dark dashboard', () => {
-    const runtime = createTestRuntime(at('2026-03-08T05:30:00.000Z'))
+      expect(dayClock()).toBeInTheDocument();
+    } finally {
+      dateNow.mockRestore();
+    }
+  });
 
-    render(<App runtime={runtime} />)
+  it("shows elapsed time since the local midnight before first launch", () => {
+    const runtime = createTestRuntime(at("2026-03-08T05:30:00.000Z"));
 
-    expect(screen.getByRole('main')).toHaveAttribute('data-theme', 'dark')
-  })
+    render(<App runtime={runtime} />);
 
-  it('ticks every second', () => {
-    const runtime = createTestRuntime(at('2026-03-08T05:30:00.000Z'))
+    expect(dayClock()).toHaveTextContent("00:30:00"); //Checks that the clock shows 30 minutes past midnight
+    expect(screen.getByText("Mar 8, 2026")).toBeInTheDocument();
+  });
 
-    render(<App runtime={runtime} />)
+  it("renders a dark dashboard", () => {
+    const runtime = createTestRuntime(at("2026-03-08T05:30:00.000Z"));
 
-    act(() => runtime.clock.advance(SECOND_MS))
-    expect(dayClock()).toHaveTextContent('00:30:01')
+    render(<App runtime={runtime} />);
 
-    act(() => runtime.clock.advance(SECOND_MS))
-    expect(dayClock()).toHaveTextContent('00:30:02')
-  })
+    expect(screen.getByRole("main")).toHaveAttribute("data-theme", "dark");
+  });
 
-  it('runs from 00:00:00 to 23:59:59 and rolls into the next Day', () => {
-    const runtime = createTestRuntime(at('2026-03-08T05:00:00.000Z'))
+  it("ticks every second", () => {
+    const runtime = createTestRuntime(at("2026-03-08T05:30:00.000Z"));
 
-    render(<App runtime={runtime} />)
+    render(<App runtime={runtime} />);
 
-    expect(dayClock()).toHaveTextContent('00:00:00')
+    act(() => runtime.clock.advance(SECOND_MS));
+    expect(dayClock()).toHaveTextContent("00:30:01");
 
-    act(() => runtime.clock.advance(DAY_MS - SECOND_MS))
-    expect(dayClock()).toHaveTextContent('23:59:59')
+    act(() => runtime.clock.advance(SECOND_MS));
+    expect(dayClock()).toHaveTextContent("00:30:02");
+  });
 
-    act(() => runtime.clock.advance(SECOND_MS))
-    expect(dayClock()).toHaveTextContent('00:00:00')
-    expect(screen.getByText('Mar 9, 2026')).toBeInTheDocument()
-  })
+  it("runs from 00:00:00 to 23:59:59 and rolls into the next Day", () => {
+    const runtime = createTestRuntime(at("2026-03-08T05:00:00.000Z"));
 
-  it('keeps the Anchor across reloads and drifts the spring-forward boundary', () => {
-    const storage = createFakeStorage()
+    render(<App runtime={runtime} />);
+
+    expect(dayClock()).toHaveTextContent("00:00:00");
+
+    act(() => runtime.clock.advance(DAY_MS - SECOND_MS));
+    expect(dayClock()).toHaveTextContent("23:59:59");
+
+    act(() => runtime.clock.advance(SECOND_MS));
+    expect(dayClock()).toHaveTextContent("00:00:00");
+    expect(screen.getByText("Mar 9, 2026")).toBeInTheDocument();
+  });
+
+  it("keeps the Anchor across reloads and drifts the spring-forward boundary", () => {
+    const storage = createFakeStorage();
     const firstRuntime = createTestRuntime(
-      at('2026-03-08T05:30:00.000Z'),
+      at("2026-03-08T05:30:00.000Z"),
       storage,
-    )
-    const firstRender = render(<App runtime={firstRuntime} />)
+    );
+    const firstRender = render(<App runtime={firstRuntime} />);
 
-    expect(dayClock()).toHaveTextContent('00:30:00')
+    expect(dayClock()).toHaveTextContent("00:30:00");
 
-    firstRender.unmount()
+    firstRender.unmount();
 
     const secondRuntime = createTestRuntime(
-      at('2026-03-09T04:30:00.000Z'),
+      at("2026-03-09T04:30:00.000Z"),
       storage,
-    )
-    render(<App runtime={secondRuntime} />)
+    );
+    render(<App runtime={secondRuntime} />);
 
-    expect(dayClock()).toHaveTextContent('23:30:00')
-    expect(screen.getByText('Mar 8, 2026')).toBeInTheDocument()
+    expect(dayClock()).toHaveTextContent("23:30:00");
+    expect(screen.getByText("Mar 8, 2026")).toBeInTheDocument();
 
-    act(() => secondRuntime.clock.advance(30 * MINUTE_MS))
+    act(() => secondRuntime.clock.advance(30 * MINUTE_MS));
 
-    expect(dayClock()).toHaveTextContent('00:00:00')
-    expect(screen.getByText('Mar 9, 2026')).toBeInTheDocument()
-  })
+    expect(dayClock()).toHaveTextContent("00:00:00");
+    expect(screen.getByText("Mar 9, 2026")).toBeInTheDocument();
+  });
 
-  it('drifts the fall-back boundary without repeating a Day label', () => {
-    const storage = createFakeStorage()
+  it("drifts the fall-back boundary without repeating a Day label", () => {
+    const storage = createFakeStorage();
     const firstRuntime = createTestRuntime(
-      at('2026-11-01T04:30:00.000Z'),
+      at("2026-11-01T04:30:00.000Z"),
       storage,
-    )
-    const firstRender = render(<App runtime={firstRuntime} />)
+    );
+    const firstRender = render(<App runtime={firstRuntime} />);
 
-    expect(dayClock()).toHaveTextContent('00:30:00')
-    expect(screen.getByText('Nov 1, 2026')).toBeInTheDocument()
+    expect(dayClock()).toHaveTextContent("00:30:00");
+    expect(screen.getByText("Nov 1, 2026")).toBeInTheDocument();
 
-    firstRender.unmount()
+    firstRender.unmount();
 
     const secondRuntime = createTestRuntime(
-      at('2026-11-02T03:30:00.000Z'),
+      at("2026-11-02T03:30:00.000Z"),
       storage,
-    )
-    render(<App runtime={secondRuntime} />)
+    );
+    render(<App runtime={secondRuntime} />);
 
-    expect(dayClock()).toHaveTextContent('23:30:00')
-    expect(screen.getByText('Nov 1, 2026')).toBeInTheDocument()
+    expect(dayClock()).toHaveTextContent("23:30:00");
+    expect(screen.getByText("Nov 1, 2026")).toBeInTheDocument();
 
-    act(() => secondRuntime.clock.advance(30 * MINUTE_MS))
+    act(() => secondRuntime.clock.advance(30 * MINUTE_MS));
 
-    expect(dayClock()).toHaveTextContent('00:00:00')
-    expect(screen.getByText('Nov 2, 2026')).toBeInTheDocument()
-  })
+    expect(dayClock()).toHaveTextContent("00:00:00");
+    expect(screen.getByText("Nov 2, 2026")).toBeInTheDocument();
+  });
 
-  it('keeps the clock within one Day after a jump longer than a Day', () => {
-    const runtime = createTestRuntime(at('2026-03-08T05:30:00.000Z'))
+  it("keeps the clock within one Day after a jump longer than a Day", () => {
+    const runtime = createTestRuntime(at("2026-03-08T05:30:00.000Z"));
 
-    render(<App runtime={runtime} />)
+    render(<App runtime={runtime} />);
 
-    act(() => runtime.clock.advance(30 * HOUR_MS))
+    act(() => runtime.clock.advance(30 * HOUR_MS));
 
-    expect(dayClock()).toHaveTextContent('06:30:00')
-    expect(screen.getByText('Mar 9, 2026')).toBeInTheDocument()
-  })
-})
+    expect(dayClock()).toHaveTextContent("06:30:00");
+    expect(screen.getByText("Mar 9, 2026")).toBeInTheDocument();
+  });
+});

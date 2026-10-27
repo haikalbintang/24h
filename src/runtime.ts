@@ -19,14 +19,21 @@ export interface Runtime {
 }
 
 export function createBrowserRuntime(): Runtime {
+  let currentNow = Date.now()
+
+  const updateNow = (listener: () => void) => {
+    currentNow = Date.now()
+    listener()
+  }
+
   return {
     clock: {
-      now: () => Date.now(),
+      now: () => currentNow,
       subscribe: (listener) => {
-        const interval = window.setInterval(listener, 1000)
+        const interval = window.setInterval(() => updateNow(listener), 1000)
 
         const onVisibilityChange = () => {
-          listener()
+          updateNow(listener)
         }
 
         document.addEventListener('visibilitychange', onVisibilityChange)

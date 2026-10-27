@@ -1,46 +1,51 @@
-import { useCallback, useRef, useState } from 'react'
-import {
-  closeActiveBlock,
-  splitAtDayBoundaries,
-} from './blocks'
-import type { Block } from './blocks'
-import type { LabelId } from './labels'
+import { useCallback, useRef, useState } from "react";
+import { closeActiveBlock, splitAtDayBoundaries } from "./blocks";
+import type { Block } from "./blocks";
+import type { LabelId } from "./labels";
 
-interface UseBlocksOptions {
-  anchor: number
-  now: number
-  getNow: () => number
+export interface UseBlocksInitialState {
+  blocks: Block[];
+  activeLabelId: LabelId | null;
+  lastSeen: number | null;
 }
 
-export function useBlocks({ anchor, now, getNow }: UseBlocksOptions) {
-  const [blocks, setBlocks] = useState<Block[]>([])
-  const [activeLabelId, setActiveLabelId] = useState<LabelId | null>(null)
-  const nextBlockId = useRef(1)
+export function useBlocks(
+  anchor: number,
+  now: number,
+  getNow: () => number,
+  initialState: UseBlocksInitialState,
+) {
+  const [blocks, setBlocks] = useState<Block[]>(initialState.blocks);
+  const [activeLabelId, setActiveLabelId] = useState<LabelId | null>(
+    initialState.activeLabelId,
+  );
+  const [lastSeen, setLastSeen] = useState<number | null>(initialState.lastSeen);
+  const nextBlockId = useRef(
+    Math.max(
+      0,
+      ...initialState.blocks.map(
+        (block) => Number(block.id.slice("block-".length).split("-")[0]) || 0,
+      ),
+    ) + 1,
+  );
 
-  const createBlockId = useCallback(() => `block-${nextBlockId.current++}`, [])
+  const createBlockId = useCallback(() => `block-${nextBlockId.current++}`, []);
 
-  const [lastNow, setLastNow] = useState(now)
-  if (now !== lastNow) {
-    setLastNow(now)
-    const split = splitAtDayBoundaries(blocks, anchor, now)
-    if (split !== blocks) {
-      setBlocks(split)
-    }
-  }
+  const dynamicBlocks = splitAtDayBoundaries(blocks, anchor, now);
 
   const selectLabel = useCallback(
     (labelId: LabelId | null) => {
       if (labelId !== null && labelId === activeLabelId) {
-        return
+        return;
       }
 
-      const at = getNow()
+      const at = getNow();
 
       setBlocks((current) => {
-        let next = splitAtDayBoundaries(current, anchor, at)
+        let next = splitAtDayBoundaries(current, anchor, at);
 
         if (next.some((block) => block.end === null)) {
-          next = closeActiveBlock(next, at)
+          next = closeActiveBlock(next, at);
         }
 
         if (labelId !== null) {
@@ -52,22 +57,33 @@ export function useBlocks({ anchor, now, getNow }: UseBlocksOptions) {
               start: at,
               end: null,
             },
-          ]
+          ];
         }
 
-        return next
-      })
-      setActiveLabelId(labelId)
+        return next;
+      });
+      setActiveLabelId(labelId);
+      setLastSeen(at);
     },
     [activeLabelId, anchor, createBlockId, getNow],
-  )
+  );
 
   const toggleLabel = useCallback(
     (labelId: LabelId) => {
-      selectLabel(activeLabelId === labelId ? null : labelId)
+      selectLabel(activeLabelId === labelId ? null : labelId);
     },
     [activeLabelId, selectLabel],
-  )
+  );
 
-  return { blocks, activeLabelId, selectLabel, toggleLabel }
+  const hasOpenBlock = blocks.some((block) => block.end === null);
+  const lastSeenAt = hasOpenBlock ? now : lastSeen;
+
+  return {
+    blocks,
+    dynamicBlocks,
+    activeLabelId,
+    lastSeen: lastSeenAt,
+    selectLabel,
+    toggleLabel,
+  };
 }

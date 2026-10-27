@@ -1,26 +1,111 @@
-import { useState, useSyncExternalStore } from 'react'
-import { resolveAnchor } from './anchor'
-import { getDaySnapshot } from './day'
-import LabelsSection from './LabelsSection'
-import type { Runtime } from './runtime'
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { getDaySnapshot } from "./day";
+import { getLabelNameError } from "./labels";
+import type { LabelColourId, LabelId } from "./labels";
+import {
+  loadPersistedState,
+  savePersistedState,
+  STATE_SCHEMA_VERSION,
+  type PersistedState,
+} from "./persistence";
+import LabelsSection from "./LabelsSection";
+import { useBlocks } from "./useBlocks";
+import type { Runtime } from "./runtime";
 
 export interface AppProps {
-  runtime: Runtime
+  runtime: Runtime;
 }
 
 export default function App({ runtime }: AppProps) {
-  const [anchor] = useState(() => resolveAnchor(runtime, runtime.clock.now()))
+  const [persisted, setPersisted] = useState<PersistedState>(() =>
+    loadPersistedState(runtime, runtime.clock.now()),
+  );
+
+  const anchor = persisted.anchor;
   const now = useSyncExternalStore(
     runtime.clock.subscribe,
     runtime.clock.now,
     runtime.clock.now,
-  )
-  const day = getDaySnapshot(anchor, now)
+  );
+  const day = getDaySnapshot(anchor, now);
+
+  const nextLabelId = useRef(
+    Math.max(
+      0,
+      ...persisted.labels.map(
+        (label) => Number(label.id.slice("label-".length)) || 0,
+      ),
+    ) + 1,
+  );
+
+  const {
+    blocks,
+    dynamicBlocks,
+    activeLabelId,
+    lastSeen,
+    selectLabel,
+    toggleLabel,
+  } = useBlocks(anchor, now, runtime.clock.now, {
+    blocks: persisted.blocks,
+    activeLabelId: persisted.activeLabelId,
+    lastSeen: persisted.lastSeen,
+  });
+
+  useEffect(() => {
+    savePersistedState(runtime, {
+      schemaVersion: STATE_SCHEMA_VERSION,
+      anchor: persisted.anchor,
+      labels: persisted.labels,
+      blocks,
+      activeLabelId,
+      lastSeen,
+      theme: persisted.theme,
+    });
+  }, [runtime, persisted, blocks, activeLabelId, lastSeen]);
+
+  const createLabel = (name: string, colourId: LabelColourId): string | null => {
+    const error = getLabelNameError(name, persisted.labels);
+
+    if (error) {
+      return error;
+    }
+
+    setPersisted((current) => ({
+      ...current,
+      labels: [
+        ...current.labels,
+        { id: `label-${nextLabelId.current++}`, name, colourId },
+      ],
+    }));
+
+    return null;
+  };
+
+  const renameLabel = (
+    labelId: LabelId,
+    name: string,
+    colourId: LabelColourId,
+  ): string | null => {
+    const error = getLabelNameError(name, persisted.labels, labelId);
+
+    if (error) {
+      return error;
+    }
+
+    setPersisted((current) => ({
+      ...current,
+      labels: current.labels.map((label) =>
+        label.id === labelId ? { ...label, name, colourId } : label,
+      ),
+    }));
+
+    return null;
+  };
 
   return (
     <main
       className="min-h-screen bg-neutral-950 text-neutral-100"
-      data-theme="dark"
+      data-theme={persisted.theme}
     >
       <div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-6 py-8 sm:px-10">
         <header className="flex flex-wrap items-baseline justify-between gap-3 border-b border-neutral-800 pb-5">
@@ -44,13 +129,18 @@ export default function App({ runtime }: AppProps) {
         </section>
 
         <LabelsSection
-          anchor={anchor}
           now={now}
-          getNow={runtime.clock.now}
           dayStart={day.dayStart}
           dayEnd={day.dayEnd}
+          labels={persisted.labels}
+          activeLabelId={activeLabelId}
+          dynamicBlocks={dynamicBlocks}
+          onSelectLabel={selectLabel}
+          onToggleLabel={toggleLabel}
+          onCreateLabel={createLabel}
+          onRenameLabel={renameLabel}
         />
       </div>
     </main>
-  )
+  );
 }
