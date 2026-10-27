@@ -12,6 +12,7 @@ interface LabelsSectionProps {
   labels: Label[];
   activeLabelId: LabelId | null;
   dynamicBlocks: Block[];
+  shortcutsEnabled: boolean;
   onSelectLabel: (labelId: LabelId | null) => void;
   onToggleLabel: (labelId: LabelId) => void;
   onCreateLabel: (name: string, colourId: LabelColourId) => string | null;
@@ -29,6 +30,7 @@ export default function LabelsSection({
   labels,
   activeLabelId,
   dynamicBlocks,
+  shortcutsEnabled,
   onSelectLabel,
   onToggleLabel,
   onCreateLabel,
@@ -98,6 +100,10 @@ export default function LabelsSection({
 
   const onKeyDown = useCallback(
     (event: KeyboardEvent) => {
+      if (!shortcutsEnabled) {
+        return;
+      }
+
       if (event.metaKey || event.ctrlKey || event.altKey) {
         return;
       }
@@ -123,7 +129,7 @@ export default function LabelsSection({
         onSelectLabel(label.id);
       }
     },
-    [labels, onSelectLabel],
+    [labels, onSelectLabel, shortcutsEnabled],
   );
 
   useEffect(() => {

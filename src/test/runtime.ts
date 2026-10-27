@@ -23,6 +23,8 @@ export function createFakeClock(initialNow: number): FakeClock {
         listeners.delete(listener)
       }
     },
+    // Heartbeats come from browser events; those tests use createBrowserRuntime.
+    subscribeHeartbeat: () => () => {},
     setNow: (now) => {
       currentNow = now
       notify()

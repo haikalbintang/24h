@@ -91,6 +91,9 @@ describe('Persistence', () => {
     )
     render(<App runtime={secondRuntime} />)
 
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'End Block' }))
+
     expect(screen.getByRole('button', { name: 'Work' })).toBeInTheDocument()
     expect(
       screen.getByRole('timer', { name: 'Day clock' }),
@@ -120,7 +123,7 @@ describe('Persistence', () => {
 
     await createLabel(user, 'Work')
     await user.click(screen.getByRole('button', { name: 'Work' }))
-    act(() => firstRuntime.clock.advance(10 * SECOND_MS))
+    act(() => firstRuntime.clock.advance(60 * SECOND_MS))
 
     firstRender.unmount()
 
@@ -130,13 +133,16 @@ describe('Persistence', () => {
     )
     render(<App runtime={secondRuntime} />)
 
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'End Block' }))
+
     expect(status()).toHaveTextContent('Unlabeled')
 
     const items = blockItems()
 
     expect(items).toHaveLength(1)
     expect(items[0]).toHaveTextContent('Work')
-    expect(items[0]).toHaveTextContent('00:30:10')
+    expect(items[0]).toHaveTextContent('00:31:00')
     expect(items[0]).not.toHaveTextContent(/ongoing/i)
   })
 

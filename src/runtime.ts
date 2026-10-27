@@ -1,6 +1,7 @@
 export interface Clock {
   now(): number
   subscribe(listener: () => void): () => void
+  subscribeHeartbeat(listener: () => void): () => void
 }
 
 export interface Storage {
@@ -21,28 +22,39 @@ export interface Runtime {
 export function createBrowserRuntime(): Runtime {
   let currentNow = Date.now()
 
-  const updateNow = (listener: () => void) => {
+  const refreshNow = (listener: () => void) => {
     currentNow = Date.now()
     listener()
+  }
+
+  const watchPageVisibility = (listener: () => void) => {
+    const onVisibilityChange = () => refreshNow(listener)
+
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    window.addEventListener('pagehide', onVisibilityChange)
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      window.removeEventListener('pagehide', onVisibilityChange)
+    }
   }
 
   return {
     clock: {
       now: () => currentNow,
       subscribe: (listener) => {
-        const interval = window.setInterval(() => updateNow(listener), 1000)
-
-        const onVisibilityChange = () => {
-          updateNow(listener)
-        }
-
-        document.addEventListener('visibilitychange', onVisibilityChange)
+        const interval = window.setInterval(
+          () => refreshNow(listener),
+          1000,
+        )
+        const stopWatching = watchPageVisibility(listener)
 
         return () => {
           window.clearInterval(interval)
-          document.removeEventListener('visibilitychange', onVisibilityChange)
+          stopWatching()
         }
       },
+      subscribeHeartbeat: watchPageVisibility,
     },
     storage: {
       getItem: (key) => window.localStorage.getItem(key),

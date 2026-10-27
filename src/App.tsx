@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { getDaySnapshot } from "./day";
 import { getLabelNameError } from "./labels";
 import type { LabelColourId, LabelId } from "./labels";
@@ -9,6 +15,7 @@ import {
   type PersistedState,
 } from "./persistence";
 import LabelsSection from "./LabelsSection";
+import ReopenPrompt from "./ReopenPrompt";
 import { useBlocks } from "./useBlocks";
 import type { Runtime } from "./runtime";
 
@@ -43,25 +50,48 @@ export default function App({ runtime }: AppProps) {
     dynamicBlocks,
     activeLabelId,
     lastSeen,
+    reopenPromptOpen,
     selectLabel,
     toggleLabel,
+    recordHeartbeat,
+    endBlockAtLastSeen,
+    keepLabelThroughGap,
   } = useBlocks(anchor, now, runtime.clock.now, {
     blocks: persisted.blocks,
     activeLabelId: persisted.activeLabelId,
     lastSeen: persisted.lastSeen,
   });
 
+  const saveState = useCallback(
+    (lastSeenValue: number | null) => {
+      savePersistedState(runtime, {
+        schemaVersion: STATE_SCHEMA_VERSION,
+        anchor: persisted.anchor,
+        labels: persisted.labels,
+        blocks,
+        activeLabelId,
+        lastSeen: lastSeenValue,
+        theme: persisted.theme,
+      });
+    },
+    [runtime, persisted, blocks, activeLabelId],
+  );
+
   useEffect(() => {
-    savePersistedState(runtime, {
-      schemaVersion: STATE_SCHEMA_VERSION,
-      anchor: persisted.anchor,
-      labels: persisted.labels,
-      blocks,
-      activeLabelId,
-      lastSeen,
-      theme: persisted.theme,
+    saveState(lastSeen);
+  }, [saveState, lastSeen]);
+
+  // Visibility changes and page hides freeze the interval, so persist the
+  // heartbeat synchronously rather than waiting for the save effect.
+  useEffect(() => {
+    return runtime.clock.subscribeHeartbeat(() => {
+      const heartbeatAt = recordHeartbeat();
+
+      if (heartbeatAt !== null) {
+        saveState(heartbeatAt);
+      }
     });
-  }, [runtime, persisted, blocks, activeLabelId, lastSeen]);
+  }, [runtime, recordHeartbeat, saveState]);
 
   const createLabel = (name: string, colourId: LabelColourId): string | null => {
     const error = getLabelNameError(name, persisted.labels);
@@ -107,7 +137,10 @@ export default function App({ runtime }: AppProps) {
       className="min-h-screen bg-neutral-950 text-neutral-100"
       data-theme={persisted.theme}
     >
-      <div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-6 py-8 sm:px-10">
+      <div
+        className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-6 py-8 sm:px-10"
+        inert={reopenPromptOpen}
+      >
         <header className="flex flex-wrap items-baseline justify-between gap-3 border-b border-neutral-800 pb-5">
           <h1 className="text-xs font-semibold tracking-[0.28em] text-neutral-400 uppercase">
             Day Labels
@@ -135,12 +168,24 @@ export default function App({ runtime }: AppProps) {
           labels={persisted.labels}
           activeLabelId={activeLabelId}
           dynamicBlocks={dynamicBlocks}
+          shortcutsEnabled={!reopenPromptOpen}
           onSelectLabel={selectLabel}
           onToggleLabel={toggleLabel}
           onCreateLabel={createLabel}
           onRenameLabel={renameLabel}
         />
       </div>
+
+      {reopenPromptOpen ? (
+        <ReopenPrompt
+          labelName={
+            persisted.labels.find((label) => label.id === activeLabelId)
+              ?.name ?? null
+          }
+          onEnd={endBlockAtLastSeen}
+          onKeep={keepLabelThroughGap}
+        />
+      ) : null}
     </main>
   );
 }

@@ -1,6 +1,7 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { closeActiveBlock, splitAtDayBoundaries } from "./blocks";
 import type { Block } from "./blocks";
+import { HEARTBEAT_INTERVAL_MS, isReopenGap } from "./heartbeat";
 import type { LabelId } from "./labels";
 
 export interface UseBlocksInitialState {
@@ -9,12 +10,25 @@ export interface UseBlocksInitialState {
   lastSeen: number | null;
 }
 
+export interface UseBlocksResult {
+  blocks: Block[];
+  dynamicBlocks: Block[];
+  activeLabelId: LabelId | null;
+  lastSeen: number | null;
+  reopenPromptOpen: boolean;
+  selectLabel: (labelId: LabelId | null) => void;
+  toggleLabel: (labelId: LabelId) => void;
+  recordHeartbeat: () => number | null;
+  endBlockAtLastSeen: () => void;
+  keepLabelThroughGap: () => void;
+}
+
 export function useBlocks(
   anchor: number,
   now: number,
   getNow: () => number,
   initialState: UseBlocksInitialState,
-) {
+): UseBlocksResult {
   const [blocks, setBlocks] = useState<Block[]>(initialState.blocks);
   const [activeLabelId, setActiveLabelId] = useState<LabelId | null>(
     initialState.activeLabelId,
@@ -32,6 +46,29 @@ export function useBlocks(
   const createBlockId = useCallback(() => `block-${nextBlockId.current++}`, []);
 
   const dynamicBlocks = splitAtDayBoundaries(blocks, anchor, now);
+
+  const hasOpenBlock = blocks.some((block) => block.end === null);
+  const reopenPromptOpen =
+    hasOpenBlock && lastSeen !== null && isReopenGap(lastSeen, now);
+
+  useEffect(() => {
+    if (!hasOpenBlock || lastSeen === null) {
+      return;
+    }
+
+    if (isReopenGap(lastSeen, now)) {
+      // The gap is long enough that the user must decide how to account for
+      // it; the reopen prompt takes over and defers the heartbeat.
+      return;
+    }
+
+    if (now - lastSeen >= HEARTBEAT_INTERVAL_MS) {
+      // The clock is the external system; recording the heartbeat is how this
+      // effect synchronizes with it.
+      // oxlint-disable-next-line react/set-state-in-effect
+      setLastSeen(now);
+    }
+  }, [hasOpenBlock, lastSeen, now]);
 
   const selectLabel = useCallback(
     (labelId: LabelId | null) => {
@@ -75,15 +112,54 @@ export function useBlocks(
     [activeLabelId, selectLabel],
   );
 
-  const hasOpenBlock = blocks.some((block) => block.end === null);
-  const lastSeenAt = hasOpenBlock ? now : lastSeen;
+  const recordHeartbeat = useCallback(() => {
+    if (!hasOpenBlock || lastSeen === null) {
+      return null;
+    }
+
+    const at = getNow();
+
+    if (isReopenGap(lastSeen, at)) {
+      return null;
+    }
+
+    setLastSeen(at);
+    return at;
+  }, [getNow, hasOpenBlock, lastSeen]);
+
+  const endBlockAtLastSeen = useCallback(() => {
+    const at = getNow();
+    const endedAt = lastSeen ?? at;
+
+    setBlocks((current) =>
+      closeActiveBlock(
+        // Split just before the end so a Block ending exactly on a Day
+        // boundary does not leave a zero-length tail.
+        splitAtDayBoundaries(current, anchor, endedAt - 1),
+        endedAt,
+      ),
+    );
+    setActiveLabelId(null);
+    setLastSeen(at);
+  }, [anchor, getNow, lastSeen]);
+
+  const keepLabelThroughGap = useCallback(() => {
+    const at = getNow();
+
+    setBlocks((current) => splitAtDayBoundaries(current, anchor, at));
+    setLastSeen(at);
+  }, [anchor, getNow]);
 
   return {
     blocks,
     dynamicBlocks,
     activeLabelId,
-    lastSeen: lastSeenAt,
+    lastSeen,
+    reopenPromptOpen,
     selectLabel,
     toggleLabel,
+    recordHeartbeat,
+    endBlockAtLastSeen,
+    keepLabelThroughGap,
   };
 }

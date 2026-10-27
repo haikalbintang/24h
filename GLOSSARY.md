@@ -41,8 +41,16 @@ A block the user creates retroactively over a gap or corrects after the fact, ra
 _Avoid_: backfill, entry, correction
 
 **Gap**:
-A span during which the app was not running, so no block was recorded. A gap is left empty in history until the user edits it.
+A span during which the app was not running, so no block was recorded. A gap of two minutes or less is treated as uninterrupted and extends the open Block; a longer gap is left empty in history until the user edits it.
 _Avoid_: hole, downtime, missing time
+
+**Heartbeat**:
+The last-seen timestamp written about every minute while a Block is open, and immediately when the page is hidden or unloaded. It lets the app measure how long it was not running.
+_Avoid_: ping, tick, autosave
+
+**Reopen prompt**:
+The modal shown when a Block is still open but the gap since the last Heartbeat exceeds two minutes. It asks whether to end the Block at the last Heartbeat or keep the label through the gap.
+_Avoid_: resume dialog, away modal, recovery prompt
 
 **Unaccounted**:
 Time within a Day that is not covered by any Block, whether Unlabeled or a Gap.

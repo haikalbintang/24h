@@ -1,5 +1,5 @@
-import { closeActiveBlock } from './blocks'
 import type { Block } from './blocks'
+import { isReopenGap } from './heartbeat'
 import { getLabelColour } from './labels'
 import type { Label, LabelColourId, LabelId } from './labels'
 import { localMidnightBefore } from './day'
@@ -50,7 +50,7 @@ export function decodePersistedState(raw: string | null): PersistedState | null 
     return null
   }
 
-  return resolveOpenBlock(state)
+  return state
 }
 
 function parsePersistedState(value: unknown): PersistedState | null {
@@ -145,24 +145,34 @@ function isBlock(value: unknown): value is Block {
   )
 }
 
-function resolveOpenBlock(state: PersistedState): PersistedState {
+function advanceLastSeenWithinSilentWindow(
+  state: PersistedState,
+  now: number,
+): PersistedState {
   const openBlock = state.blocks.find((block) => block.end === null)
 
   if (openBlock === undefined) {
     return state
   }
 
-  return {
-    ...state,
-    blocks: closeActiveBlock(state.blocks, state.lastSeen ?? openBlock.start),
-    activeLabelId: null,
+  const lastSeen = state.lastSeen ?? openBlock.start
+
+  if (isReopenGap(lastSeen, now)) {
+    // The gap is long enough that the user must decide how to account for it;
+    // the reopen prompt takes over.
+    return state
   }
+
+  // The gap is within the silent window, so the Block simply continues.
+  return { ...state, lastSeen: now }
 }
 
 export function loadPersistedState(runtime: Runtime, now: number): PersistedState {
   const restored = decodePersistedState(runtime.storage.getItem(STATE_STORAGE_KEY))
 
-  return restored ?? createFreshPersistedState(now)
+  const state = restored ?? createFreshPersistedState(now)
+
+  return advanceLastSeenWithinSilentWindow(state, now)
 }
 
 export function savePersistedState(runtime: Runtime, state: PersistedState): void {
