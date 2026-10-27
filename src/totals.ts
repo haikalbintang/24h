@@ -25,7 +25,6 @@ export function clipToDay(block: Block, dayStart: number, dayEnd: number, now: n
 
 export function labelTotalsForDay(
   blocks: Block[],
-  _anchor: number,
   dayStart: number,
   dayEnd: number,
   now: number,
@@ -72,7 +71,7 @@ export function sevenDayTotals(
   for (let i = 0; i < 7; i++) {
     const dayIndex = selectedDayIndex - (6 - i)
     const { dayStart, dayEnd } = dayBounds(anchor, dayIndex)
-    const totals = labelTotalsForDay(blocks, anchor, dayStart, dayEnd, now)
+    const totals = labelTotalsForDay(blocks, dayStart, dayEnd, now)
     const unaccounted = unaccountedMsForDay(blocks, dayStart, dayEnd, now)
     result.push({ dayIndex, dayStart, dayEnd, totals, unaccounted })
   }
