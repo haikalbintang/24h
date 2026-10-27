@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh issue:*)",
+      "Bash(cat vite.config.ts 2>/dev/null; cat vitest.config.ts 2>/dev/null; cat src/test/setup.ts; echo \"---\"; ls *.json *.ts 2>/dev/null)",
+      "Bash(npm test 2>&1 | tail -80)",
+      "Bash(npm run typecheck 2>&1 | tail -20 && echo \"===LINT===\" && npm run lint 2>&1 | tail -30)",
+      "Bash(ls -la && echo \"---docs files---\" && find docs -type f | sort && echo \"---adr---\" && for f in docs/adr/*; do echo \"== $f\"; sed -n '1,80p' \"$f\"; done 2>/dev/null | head -200)",
+      "Bash(cat docs/agents/*.md 2>/dev/null | head -200; echo \"---readme---\"; cat README.md 2>/dev/null | head -100; echo \"---oxlint---\"; cat .oxlintrc.json 2>/dev/null; cat oxlint.json 2>/dev/null)",
+      "Bash(cat .gitignore; echo \"---remote---\"; git remote -v; echo \"---qoder---\"; find .qoder -maxdepth 2 -type f | head -20)",
+      "Bash(npx vitest run src/reopen.test.tsx 2>&1 | tail -40)",
+      "Bash(npm run typecheck 2>&1 | tail -10; echo \"===LINT===\"; npm run lint 2>&1 | tail -20)",
+      "Bash(npx vitest run src/reopen.test.tsx 2>&1 | tail -30)",
+      "Bash(grep -n \"it\\('\" src/reopen.test.tsx; echo \"---pagehide only---\"; npx vitest run src/reopen.test.tsx -t \"page hide\" 2>&1 | tail -15)",
+      "Bash(npm run typecheck 2>&1 | tail -5; echo \"===LINT===\"; npm run lint 2>&1 | tail -8; echo \"===TESTS===\"; npm test 2>&1 | tail -20)",
+      "Bash(cd \"C:\\\\Users\\\\mhaik\\\\Documents\\\\CODES\\\\24h\" && git log --oneline -3 && git status --short)",
+      "Bash(cd \"C:\\\\Users\\\\mhaik\\\\Documents\\\\CODES\\\\24h\" && git diff HEAD -- src/App.tsx src/blocks.ts src/persistence.test.tsx src/persistence.ts src/runtime.ts src/useBlocks.ts)",
+      "Bash(cd \"C:\\\\Users\\\\mhaik\\\\Documents\\\\CODES\\\\24h\" && ls && git status --short)",
+      "Bash(cd \"C:\\\\Users\\\\mhaik\\\\Documents\\\\CODES\\\\24h\" && cat package.json && ls src)",
+      "Bash(cd \"C:\\\\Users\\\\mhaik\\\\Documents\\\\CODES\\\\24h\" && ls src && ls src/test 2>/dev/null; grep -rn \"dynamicBlocks\\\\|splitAtDayBoundaries\\\\|decodePersistedState\\\\|exportSink\" src --include=*.ts --include=*.tsx | head -50)",
+      "Bash(cd \"C:\\\\Users\\\\mhaik\\\\Documents\\\\CODES\\\\24h\" && cat .oxlintrc.json 2>/dev/null; ls -a | head -30)",
+      "Bash(cd \"C:\\\\Users\\\\mhaik\\\\Documents\\\\CODES\\\\24h\" && cat package.json && cat src/test/setup.ts && cat vite.config.ts 2>/dev/null; cat vitest.config.ts 2>/dev/null; cat tsconfig.json | head -40)",
+      "Bash(cd \"C:\\\\Users\\\\mhaik\\\\Documents\\\\CODES\\\\24h\" && ls node_modules >/dev/null 2>&1 && echo node_modules-present; npm run typecheck 2>&1 | tail -20)",
+      "Bash(cd \"C:\\\\Users\\\\mhaik\\\\Documents\\\\CODES\\\\24h\" && npm run lint 2>&1 | tail -20)",
+      "Bash(cd \"C:\\\\Users\\\\mhaik\\\\Documents\\\\CODES\\\\24h\" && npx vitest run src/reopen.test.tsx src/persistence.test.tsx src/blocks.test.tsx src/App.test.tsx 2>&1 | tail -40)"
+    ]
+  }
+}
