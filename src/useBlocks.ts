@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   closeActiveBlock,
+  createManualBlock,
   editBlock as applyBlockEdit,
   getBlockEditError,
   getBlockRestoreError,
+  getBlockSplitError,
+  getManualBlockError,
   splitAtDayBoundaries,
+  splitBlock,
 } from "./blocks";
 import type { Block, BlockEdit, BlockId, EditBounds } from "./blocks";
 import { HEARTBEAT_INTERVAL_MS, isReopenGap } from "./heartbeat";
@@ -40,6 +44,11 @@ export interface UseBlocksResult {
     end: number | null,
     bounds: Omit<EditBounds, "now">,
   ) => string | null;
+  addManualBlock: (
+    edit: BlockEdit & { end: number },
+    bounds: Omit<EditBounds, "now">,
+  ) => string | null;
+  splitBlock: (id: BlockId, at: number) => string | null;
   deleteBlock: (id: BlockId) => void;
   deletedBlock: DeletedBlock | null;
   undoDelete: () => string | null;
@@ -118,6 +127,7 @@ export function useBlocks(
               labelId,
               start: at,
               end: null,
+              source: "live",
             },
           ];
         }
@@ -232,6 +242,43 @@ export function useBlocks(
     [anchor, blocks, getNow],
   );
 
+  const addManualBlock = useCallback(
+    (
+      edit: BlockEdit & { end: number },
+      bounds: Omit<EditBounds, "now">,
+    ) => {
+      const at = getNow();
+      const current = splitAtDayBoundaries(blocks, anchor, at);
+      const error = getManualBlockError(current, edit, { ...bounds, now: at });
+
+      if (error) {
+        return error;
+      }
+
+      setBlocks(createManualBlock(current, createBlockId(), edit));
+
+      return null;
+    },
+    [anchor, blocks, createBlockId, getNow],
+  );
+
+  const splitBlockAt = useCallback(
+    (id: BlockId, splitTime: number) => {
+      const at = getNow();
+      const current = splitAtDayBoundaries(blocks, anchor, at);
+      const error = getBlockSplitError(current, id, splitTime, at);
+
+      if (error) {
+        return error;
+      }
+
+      setBlocks(splitBlock(current, id, splitTime, createBlockId()));
+
+      return null;
+    },
+    [anchor, blocks, createBlockId, getNow],
+  );
+
   const undoDelete = useCallback(() => {
     const at = getNow();
 
@@ -265,6 +312,8 @@ export function useBlocks(
     endBlockAtLastSeen,
     keepLabelThroughGap,
     editBlock,
+    addManualBlock,
+    splitBlock: splitBlockAt,
     deleteBlock,
     deletedBlock,
     undoDelete,

@@ -415,3 +415,96 @@ describe("Block editing validation, reassign, delete, undo", () => {
     expect(blockItems()[0]).toHaveTextContent("00:30:00 – 00:35:00");
   });
 });
+
+describe("Manual Blocks and splitting", () => {
+  const dayTotals = () =>
+    screen.getByRole("list", { name: "Selected day totals" });
+
+  async function addManualBlock(
+    user: ReturnType<typeof userEvent.setup>,
+    fields: { start: string; end: string; label?: string },
+  ) {
+    const form = screen.getByRole("form", { name: "Add manual block" });
+
+    await user.type(within(form).getByRole("textbox", { name: "New start" }), fields.start);
+    await user.type(within(form).getByRole("textbox", { name: "New end" }), fields.end);
+
+    if (fields.label !== undefined) {
+      await user.selectOptions(
+        within(form).getByRole("combobox", { name: "Label" }),
+        fields.label,
+      );
+    }
+
+    await user.click(within(form).getByRole("button", { name: "Add manual block" }));
+  }
+
+  async function splitBlock(
+    user: ReturnType<typeof userEvent.setup>,
+    index: number,
+    time: string,
+  ) {
+    await user.click(
+      within(blockItems()[index]).getByRole("button", { name: "Split block" }),
+    );
+
+    const form = screen.getByRole("form", { name: "Split block" });
+
+    await user.type(within(form).getByRole("textbox", { name: "Split at" }), time);
+    await user.click(within(form).getByRole("button", { name: "Split" }));
+  }
+
+  it("adds a manual Block over Unaccounted time and updates totals", async () => {
+    const { user } = await setupTwoBlocks();
+
+    await addManualBlock(user, { start: "00:10:00", end: "00:20:00", label: "Work" });
+
+    expect(blockItems()).toHaveLength(3);
+    expect(blockItems()[0]).toHaveTextContent("00:10:00 – 00:20:00");
+    expect(blockItems()[0]).toHaveTextContent("Work");
+    expect(blockItems()[0]).toHaveTextContent(/manual/i);
+    expect(blockItems()[1]).not.toHaveTextContent(/manual/i);
+    expect(dayTotals()).toHaveTextContent("00:20:00");
+  });
+
+  it("rejects a manual Block that overlaps and adds nothing", async () => {
+    const { user } = await setupTwoBlocks();
+
+    await addManualBlock(user, { start: "00:25:00", end: "00:35:00" });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(/overlap/i);
+    expect(blockItems()).toHaveLength(2);
+  });
+
+  it("only offers labels that exist when adding a manual Block", async () => {
+    await setupTwoBlocks();
+
+    const form = screen.getByRole("form", { name: "Add manual block" });
+    const options = within(
+      within(form).getByRole("combobox", { name: "Label" }),
+    ).getAllByRole("option");
+
+    expect(options.map((option) => option.textContent)).toEqual(["Work", "Rest"]);
+  });
+
+  it("splits a Block at a time inside it", async () => {
+    const { user } = await setupTwoBlocks();
+
+    await splitBlock(user, 0, "00:35:00");
+
+    expect(blockItems()).toHaveLength(3);
+    expect(blockItems()[0]).toHaveTextContent("00:30:00 – 00:35:00");
+    expect(blockItems()[1]).toHaveTextContent("00:35:00 – 00:40:00");
+    expect(blockItems()[1]).toHaveTextContent("Work");
+    expect(dayTotals()).toHaveTextContent("00:10:00");
+  });
+
+  it("rejects a split outside the Block", async () => {
+    const { user } = await setupTwoBlocks();
+
+    await splitBlock(user, 0, "00:45:00");
+
+    expect(screen.getByRole("alert")).toHaveTextContent(/inside/i);
+    expect(blockItems()).toHaveLength(2);
+  });
+});

@@ -11,6 +11,12 @@ export interface BlockEditRequest {
   labelId: LabelId;
 }
 
+export interface ManualBlockRequest {
+  start: number;
+  end: number;
+  labelId: LabelId;
+}
+
 interface BlocksSectionProps {
   blocks: Block[];
   labels: Label[];
@@ -18,6 +24,8 @@ interface BlocksSectionProps {
   dayStart: number;
   dayEnd: number;
   onEditBlock: (id: string, edit: BlockEditRequest) => string | null;
+  onAddManualBlock: (edit: ManualBlockRequest) => string | null;
+  onSplitBlock: (id: string, at: number) => string | null;
   onDeleteBlock: (id: string) => void;
 }
 
@@ -28,9 +36,18 @@ export default function BlocksSection({
   dayStart,
   dayEnd,
   onEditBlock,
+  onAddManualBlock,
+  onSplitBlock,
   onDeleteBlock,
 }: BlocksSectionProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [splittingId, setSplittingId] = useState<string | null>(null);
+  const [splitText, setSplitText] = useState("");
+  const [splitError, setSplitError] = useState<string | null>(null);
+  const [manualStartText, setManualStartText] = useState("");
+  const [manualEndText, setManualEndText] = useState("");
+  const [manualLabelId, setManualLabelId] = useState<LabelId>("");
+  const [manualError, setManualError] = useState<string | null>(null);
   const [startText, setStartText] = useState("");
   const [endText, setEndText] = useState("");
   const [labelId, setLabelId] = useState<LabelId>("");
@@ -48,6 +65,66 @@ export default function BlocksSection({
     setEndText(block.end === null ? "" : formatClock(block.end - dayStart));
     setLabelId(block.labelId);
     setError(null);
+  };
+
+  const startSplitting = (block: Block) => {
+    setSplittingId(block.id);
+    setSplitText("");
+    setSplitError(null);
+  };
+
+  const saveSplit = (event: React.FormEvent<HTMLFormElement>, block: Block) => {
+    event.preventDefault();
+
+    const offset = parseClock(splitText);
+
+    if (offset === null) {
+      setSplitError("Enter times as HH:MM:SS.");
+      return;
+    }
+
+    const result = onSplitBlock(block.id, dayStart + offset);
+
+    if (result) {
+      setSplitError(result);
+      return;
+    }
+
+    setSplittingId(null);
+    setSplitError(null);
+  };
+
+  const addManualBlock = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const startOffset = parseClock(manualStartText);
+    const endOffset = parseClock(manualEndText);
+    const chosenLabelId = manualLabelId || (labels[0]?.id ?? "");
+
+    if (startOffset === null || endOffset === null) {
+      setManualError("Enter times as HH:MM:SS.");
+      return;
+    }
+
+    if (chosenLabelId === "") {
+      setManualError("Create a label first.");
+      return;
+    }
+
+    const result = onAddManualBlock({
+      start: dayStart + startOffset,
+      end: dayStart + endOffset,
+      labelId: chosenLabelId,
+    });
+
+    if (result) {
+      setManualError(result);
+      return;
+    }
+
+    setManualStartText("");
+    setManualEndText("");
+    setManualError(null);
   };
 
   const saveBlock = (event: React.FormEvent<HTMLFormElement>, block: Block) => {
@@ -115,6 +192,11 @@ export default function BlocksSection({
                   <span className="text-sm font-medium text-neutral-100">
                     {label ? label.name : "Unknown"}
                   </span>
+                  {block.source === "manual" ? (
+                    <span className="rounded border border-neutral-700 px-1.5 py-0.5 text-xs text-neutral-400">
+                      Manual
+                    </span>
+                  ) : null}
                 </div>
                 <div className="flex flex-wrap items-center gap-3 text-sm text-neutral-400">
                   <span>
@@ -129,6 +211,14 @@ export default function BlocksSection({
                   >
                     Edit
                   </button>
+                  <button
+                    type="button"
+                    aria-label="Split block"
+                    onClick={() => startSplitting(block)}
+                    className="rounded-lg border border-neutral-700 px-3 py-1 text-neutral-200 hover:border-neutral-500"
+                  >
+                    Split
+                  </button>
                   {block.end === null ? null : (
                     <button
                       type="button"
@@ -140,6 +230,46 @@ export default function BlocksSection({
                     </button>
                   )}
                 </div>
+                {splittingId === block.id ? (
+                  <form
+                    aria-label="Split block"
+                    onSubmit={(event) => saveSplit(event, block)}
+                    className="grid w-full gap-3 pt-2"
+                  >
+                    <label className="grid gap-1 text-xs text-neutral-400">
+                      Split at
+                      <input
+                        value={splitText}
+                        aria-invalid={splitError !== null}
+                        onChange={(event) => {
+                          setSplitText(event.target.value);
+                          setSplitError(null);
+                        }}
+                        className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 font-mono text-sm text-neutral-100"
+                      />
+                    </label>
+                    {splitError ? (
+                      <p role="alert" className="text-sm text-red-400">
+                        {splitError}
+                      </p>
+                    ) : null}
+                    <div className="flex gap-2">
+                      <button
+                        type="submit"
+                        className="rounded-lg bg-neutral-100 px-4 py-1.5 text-sm font-semibold text-neutral-950 hover:bg-white"
+                      >
+                        Split
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSplittingId(null)}
+                        className="rounded-lg border border-neutral-700 px-4 py-1.5 text-sm text-neutral-200 hover:border-neutral-500"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                ) : null}
                 {editingId === block.id ? (
                   <form
                     aria-label="Edit block"
@@ -218,6 +348,63 @@ export default function BlocksSection({
           })}
         </ul>
       )}
+      <form
+        aria-label="Add manual block"
+        onSubmit={addManualBlock}
+        className="grid gap-3 rounded-lg border border-neutral-800 bg-neutral-900/40 p-4"
+      >
+        <div className="flex flex-wrap gap-3">
+          <label className="grid gap-1 text-xs text-neutral-400">
+            New start
+            <input
+              value={manualStartText}
+              aria-invalid={manualError !== null}
+              onChange={(event) => {
+                setManualStartText(event.target.value);
+                setManualError(null);
+              }}
+              className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 font-mono text-sm text-neutral-100"
+            />
+          </label>
+          <label className="grid gap-1 text-xs text-neutral-400">
+            New end
+            <input
+              value={manualEndText}
+              aria-invalid={manualError !== null}
+              onChange={(event) => {
+                setManualEndText(event.target.value);
+                setManualError(null);
+              }}
+              className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 font-mono text-sm text-neutral-100"
+            />
+          </label>
+          <label className="grid gap-1 text-xs text-neutral-400">
+            Label
+            <select
+              value={manualLabelId || (labels[0]?.id ?? "")}
+              onChange={(event) => setManualLabelId(event.target.value)}
+              className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 text-sm text-neutral-100"
+            >
+              {labels.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        {manualError ? (
+          <p role="alert" className="text-sm text-red-400">
+            {manualError}
+          </p>
+        ) : null}
+        <button
+          type="submit"
+          className="justify-self-start rounded-lg bg-neutral-100 px-4 py-1.5 text-sm font-semibold text-neutral-950 hover:bg-white"
+        >
+          Add manual block
+        </button>
+      </form>
     </section>
   );
 }

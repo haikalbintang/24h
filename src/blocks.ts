@@ -3,11 +3,14 @@ import type { LabelId } from "./labels";
 
 export type BlockId = string;
 
+export type BlockSource = "live" | "manual";
+
 export interface Block {
   id: BlockId;
   labelId: LabelId;
   start: number;
   end: number | null;
+  source: BlockSource;
 }
 
 export function getBlockDuration(block: Block, now: number): number {
@@ -51,6 +54,7 @@ export function splitAtDayBoundaries(
       labelId,
       start: dayEnd,
       end: null,
+      source: result[index].source,
     });
     index = result.length - 1;
   }
@@ -93,7 +97,7 @@ function overlapsAnother(
 
 export function getBlockEditError(
   blocks: Block[],
-  id: BlockId,
+  id: BlockId | null,
   edit: BlockEdit,
   bounds: EditBounds,
 ): string | null {
@@ -126,6 +130,57 @@ export function editBlock(
 ): Block[] {
   return blocks.map((block) =>
     block.id === id ? { ...block, ...edit } : block,
+  );
+}
+
+export function getManualBlockError(
+  blocks: Block[],
+  edit: BlockEdit & { end: number },
+  bounds: EditBounds,
+): string | null {
+  return getBlockEditError(blocks, null, edit, bounds);
+}
+
+export function createManualBlock(
+  blocks: Block[],
+  id: BlockId,
+  edit: BlockEdit & { end: number },
+): Block[] {
+  return [...blocks, { id, ...edit, source: "manual" }];
+}
+
+export function getBlockSplitError(
+  blocks: Block[],
+  id: BlockId,
+  at: number,
+  now: number,
+): string | null {
+  const target = blocks.find((block) => block.id === id);
+
+  if (!target) {
+    return "That Block no longer exists.";
+  }
+
+  if (at <= target.start || at >= (target.end ?? now)) {
+    return "A split must fall strictly inside the Block.";
+  }
+
+  return null;
+}
+
+export function splitBlock(
+  blocks: Block[],
+  id: BlockId,
+  at: number,
+  newId: BlockId,
+): Block[] {
+  return blocks.flatMap((block) =>
+    block.id === id
+      ? [
+          { ...block, end: at },
+          { ...block, id: newId, start: at },
+        ]
+      : [block],
   );
 }
 
