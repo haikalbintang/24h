@@ -3,6 +3,7 @@ import ColourRadioGroup from "./ColourRadioGroup";
 import { getLabelColour, LABEL_COLOURS } from "./labels";
 import type { Label, LabelColourId, LabelId } from "./labels";
 import BlocksSection from "./BlocksSection";
+import type { BlockEditRequest } from "./BlocksSection";
 import type { Block } from "./blocks";
 
 interface LabelsSectionProps {
@@ -13,6 +14,8 @@ interface LabelsSectionProps {
   activeLabelId: LabelId | null;
   dynamicBlocks: Block[];
   shortcutsEnabled: boolean;
+  onEditBlock: (id: string, edit: BlockEditRequest) => string | null;
+  onDeleteBlock: (id: string) => void;
   onSelectLabel: (labelId: LabelId | null) => void;
   onToggleLabel: (labelId: LabelId) => void;
   onCreateLabel: (name: string, colourId: LabelColourId) => string | null;
@@ -31,6 +34,8 @@ export default function LabelsSection({
   activeLabelId,
   dynamicBlocks,
   shortcutsEnabled,
+  onEditBlock,
+  onDeleteBlock,
   onSelectLabel,
   onToggleLabel,
   onCreateLabel,
@@ -149,6 +154,8 @@ export default function LabelsSection({
         now={now}
         dayStart={dayStart}
         dayEnd={dayEnd}
+        onEditBlock={onEditBlock}
+        onDeleteBlock={onDeleteBlock}
       />
 
       <div className="flex flex-wrap items-baseline justify-between gap-3">
@@ -365,3 +372,4 @@ export default function LabelsSection({
     </section>
   );
 }
+

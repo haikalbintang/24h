@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { closeActiveBlock, splitAtDayBoundaries } from "./blocks";
-import type { Block } from "./blocks";
+import {
+  closeActiveBlock,
+  editBlock as applyBlockEdit,
+  getBlockEditError,
+  getBlockRestoreError,
+  splitAtDayBoundaries,
+} from "./blocks";
+import type { Block, BlockEdit, BlockId, EditBounds } from "./blocks";
 import { HEARTBEAT_INTERVAL_MS, isReopenGap } from "./heartbeat";
 import type { LabelId } from "./labels";
 
@@ -8,6 +14,13 @@ export interface UseBlocksInitialState {
   blocks: Block[];
   activeLabelId: LabelId | null;
   lastSeen: number | null;
+}
+
+export const UNDO_WINDOW_MS = 5000;
+
+export interface DeletedBlock {
+  block: Block;
+  expiresAt: number;
 }
 
 export interface UseBlocksResult {
@@ -21,6 +34,15 @@ export interface UseBlocksResult {
   recordHeartbeat: () => number | null;
   endBlockAtLastSeen: () => void;
   keepLabelThroughGap: () => void;
+  editBlock: (
+    id: BlockId,
+    edit: Omit<BlockEdit, "end">,
+    end: number | null,
+    bounds: Omit<EditBounds, "now">,
+  ) => string | null;
+  deleteBlock: (id: BlockId) => void;
+  deletedBlock: DeletedBlock | null;
+  undoDelete: () => string | null;
 }
 
 export function useBlocks(
@@ -33,7 +55,10 @@ export function useBlocks(
   const [activeLabelId, setActiveLabelId] = useState<LabelId | null>(
     initialState.activeLabelId,
   );
-  const [lastSeen, setLastSeen] = useState<number | null>(initialState.lastSeen);
+  const [lastSeen, setLastSeen] = useState<number | null>(
+    initialState.lastSeen,
+  );
+  const [deletedBlock, setDeletedBlock] = useState<DeletedBlock | null>(null);
   const nextBlockId = useRef(
     Math.max(
       0,
@@ -150,6 +175,84 @@ export function useBlocks(
     setLastSeen(at);
   }, [anchor, getNow]);
 
+  const editBlock = useCallback(
+    (
+      id: BlockId,
+      edit: Omit<BlockEdit, "end">,
+      end: number | null,
+      bounds: Omit<EditBounds, "now">,
+    ) => {
+      const at = getNow();
+      const current = splitAtDayBoundaries(blocks, anchor, at);
+      const target = current.find((block) => block.id === id);
+
+      if (!target) {
+        return "That Block no longer exists.";
+      }
+
+      // The active Block has no end to edit; it keeps running.
+      const fullEdit = {
+        ...edit,
+        end: target.end === null ? null : end,
+      };
+      const error = getBlockEditError(current, id, fullEdit, {
+        ...bounds,
+        now: at,
+      });
+
+      if (error) {
+        return error;
+      }
+
+      setBlocks(applyBlockEdit(current, id, fullEdit));
+
+      if (target.end === null) {
+        setActiveLabelId(edit.labelId);
+      }
+
+      return null;
+    },
+    [anchor, blocks, getNow],
+  );
+
+  const deleteBlock = useCallback(
+    (id: BlockId) => {
+      const at = getNow();
+      const current = splitAtDayBoundaries(blocks, anchor, at);
+      const target = current.find((block) => block.id === id);
+
+      // The active Block is still running, so it cannot be deleted.
+      if (!target || target.end === null) {
+        return;
+      }
+
+      setBlocks(current.filter((block) => block.id !== id));
+      setDeletedBlock({ block: target, expiresAt: at + UNDO_WINDOW_MS });
+    },
+    [anchor, blocks, getNow],
+  );
+
+  const undoDelete = useCallback(() => {
+    const at = getNow();
+
+    if (!deletedBlock || at >= deletedBlock.expiresAt) {
+      return "Nothing to undo.";
+    }
+
+    const current = splitAtDayBoundaries(blocks, anchor, at);
+    const error = getBlockRestoreError(current, deletedBlock.block, at);
+
+    if (error) {
+      setDeletedBlock(null);
+      return error;
+    }
+
+    setBlocks([...current, deletedBlock.block]);
+    setDeletedBlock(null);
+
+    return null;
+  }, [anchor, blocks, deletedBlock, getNow]);
+
   return {
     blocks,
     dynamicBlocks,
@@ -161,5 +264,9 @@ export function useBlocks(
     recordHeartbeat,
     endBlockAtLastSeen,
     keepLabelThroughGap,
+    editBlock,
+    deleteBlock,
+    deletedBlock,
+    undoDelete,
   };
 }

@@ -38,6 +38,7 @@ export default function App({ runtime }: AppProps) {
   const day = getDaySnapshot(anchor, now);
 
   // null follows today, so rollover advances the view; a chosen past Day stays.
+  const [undoError, setUndoError] = useState<string | null>(null);
   const [pickedDayIndex, setPickedDayIndex] = useState<number | null>(null);
   const selectedDay = getDaySnapshot(
     anchor,
@@ -67,11 +68,17 @@ export default function App({ runtime }: AppProps) {
     recordHeartbeat,
     endBlockAtLastSeen,
     keepLabelThroughGap,
+    editBlock,
+    deleteBlock,
+    deletedBlock,
+    undoDelete,
   } = useBlocks(anchor, now, runtime.clock.now, {
     blocks: persisted.blocks,
     activeLabelId: persisted.activeLabelId,
     lastSeen: persisted.lastSeen,
   });
+
+  const undoVisible = deletedBlock !== null && now < deletedBlock.expiresAt;
 
   const saveState = useCallback(
     (lastSeenValue: number | null) => {
@@ -197,6 +204,18 @@ export default function App({ runtime }: AppProps) {
           activeLabelId={activeLabelId}
           dynamicBlocks={dynamicBlocks}
           shortcutsEnabled={!reopenPromptOpen}
+          onEditBlock={(id, edit) =>
+            editBlock(
+              id,
+              { start: edit.start, labelId: edit.labelId },
+              edit.end,
+              { dayStart: selectedDay.dayStart, dayEnd: selectedDay.dayEnd }
+            )
+          }
+          onDeleteBlock={(id) => {
+            setUndoError(null);
+            deleteBlock(id);
+          }}
           onSelectLabel={selectLabel}
           onToggleLabel={toggleLabel}
           onCreateLabel={createLabel}
@@ -212,6 +231,29 @@ export default function App({ runtime }: AppProps) {
         />
       </div>
 
+      {undoVisible || undoError ? (
+        <div
+          role="status"
+          aria-label="Undo"
+          className="fixed bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-3 rounded-lg border border-neutral-700 bg-neutral-900 px-4 py-2 text-sm"
+        >
+          {undoVisible ? (
+            <>
+              <span>Block deleted.</span>
+              <button
+                type="button"
+                onClick={() => setUndoError(undoDelete())}
+                className="font-semibold text-neutral-100 underline"
+              >
+                Undo
+              </button>
+            </>
+          ) : (
+            <span>{undoError}</span>
+          )}
+        </div>
+      ) : null}
+
       {reopenPromptOpen ? (
         <ReopenPrompt
           labelName={
@@ -225,3 +267,4 @@ export default function App({ runtime }: AppProps) {
     </main>
   );
 }
+
