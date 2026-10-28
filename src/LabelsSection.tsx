@@ -143,6 +143,14 @@ export default function LabelsSection({
       aria-labelledby="labels-heading"
       className="grid gap-6 border-t border-neutral-800 pt-6"
     >
+      <BlocksSection
+        blocks={dynamicBlocks}
+        labels={labels}
+        now={now}
+        dayStart={dayStart}
+        dayEnd={dayEnd}
+      />
+
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <h2
           id="labels-heading"
@@ -211,6 +219,50 @@ export default function LabelsSection({
           })}
         </ul>
       )}
+
+      <form
+        aria-label="Create label"
+        onSubmit={createLabel}
+        className="grid gap-4 rounded-xl border border-neutral-800 bg-neutral-900/60 p-5"
+      >
+        <h3 className="text-sm font-semibold text-neutral-200">
+          Create a label
+        </h3>
+        <div className="grid gap-2">
+          <label
+            htmlFor="new-label-name"
+            className="text-xs font-medium text-neutral-400"
+          >
+            New label name
+          </label>
+          <input
+            id="new-label-name"
+            value={newLabelName}
+            aria-invalid={createError !== null}
+            onChange={(event) => {
+              setNewLabelName(event.target.value);
+              setCreateError(null);
+            }}
+            className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-neutral-400"
+          />
+          {createError ? (
+            <p role="alert" className="text-sm text-red-400">
+              {createError}
+            </p>
+          ) : null}
+        </div>
+        <ColourRadioGroup
+          name="new-label-colour"
+          value={newLabelColourId}
+          onChange={setNewLabelColourId}
+        />
+        <button
+          type="submit"
+          className="justify-self-start rounded-lg bg-neutral-100 px-4 py-2 text-sm font-semibold text-neutral-950 hover:bg-white"
+        >
+          Create label
+        </button>
+      </form>
 
       <div className="grid gap-3">
         <h3 className="text-sm font-semibold text-neutral-200">
@@ -310,58 +362,6 @@ export default function LabelsSection({
           </ul>
         )}
       </div>
-
-      <form
-        aria-label="Create label"
-        onSubmit={createLabel}
-        className="grid gap-4 rounded-xl border border-neutral-800 bg-neutral-900/60 p-5"
-      >
-        <h3 className="text-sm font-semibold text-neutral-200">
-          Create a label
-        </h3>
-        <div className="grid gap-2">
-          <label
-            htmlFor="new-label-name"
-            className="text-xs font-medium text-neutral-400"
-          >
-            New label name
-          </label>
-          <input
-            id="new-label-name"
-            value={newLabelName}
-            aria-invalid={createError !== null}
-            onChange={(event) => {
-              setNewLabelName(event.target.value);
-              setCreateError(null);
-            }}
-            className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-neutral-400"
-          />
-          {createError ? (
-            <p role="alert" className="text-sm text-red-400">
-              {createError}
-            </p>
-          ) : null}
-        </div>
-        <ColourRadioGroup
-          name="new-label-colour"
-          value={newLabelColourId}
-          onChange={setNewLabelColourId}
-        />
-        <button
-          type="submit"
-          className="justify-self-start rounded-lg bg-neutral-100 px-4 py-2 text-sm font-semibold text-neutral-950 hover:bg-white"
-        >
-          Create label
-        </button>
-      </form>
-
-      <BlocksSection
-        blocks={dynamicBlocks}
-        labels={labels}
-        now={now}
-        dayStart={dayStart}
-        dayEnd={dayEnd}
-      />
     </section>
   );
 }
