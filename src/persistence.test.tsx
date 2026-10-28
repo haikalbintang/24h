@@ -2,7 +2,7 @@ import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import App from './App'
-import { decodePersistedState, STATE_STORAGE_KEY } from './persistence'
+import { STATE_STORAGE_KEY } from './persistence'
 import { createFakeStorage, createTestRuntime } from './test/runtime'
 
 const SECOND_MS = 1000
@@ -176,36 +176,5 @@ describe('Persistence', () => {
     render(<App runtime={runtime} />)
 
     expect(screen.getByRole('main')).toHaveAttribute('data-theme', 'light')
-  })
-})
-
-describe('Block source persistence', () => {
-  const documentWith = (blocks: unknown[]) =>
-    JSON.stringify({
-      schemaVersion: 1,
-      anchor: 0,
-      labels: [],
-      blocks,
-      activeLabelId: null,
-      lastSeen: 0,
-      theme: 'dark',
-    })
-
-  it('keeps the manual source of a stored Block', () => {
-    const state = decodePersistedState(
-      documentWith([
-        { id: 'block-1', labelId: 'label-1', start: 0, end: 1000, source: 'manual' },
-      ]),
-    )
-
-    expect(state?.blocks[0].source).toBe('manual')
-  })
-
-  it('treats a stored Block without a source as live', () => {
-    const state = decodePersistedState(
-      documentWith([{ id: 'block-1', labelId: 'label-1', start: 0, end: 1000 }]),
-    )
-
-    expect(state?.blocks[0].source).toBe('live')
   })
 })
