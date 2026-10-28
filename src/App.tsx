@@ -5,7 +5,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { getDaySnapshot } from "./day";
+import { DAY_MS, getDaySnapshot } from "./day";
 import { getLabelNameError } from "./labels";
 import type { LabelColourId, LabelId } from "./labels";
 import {
@@ -36,6 +36,16 @@ export default function App({ runtime }: AppProps) {
     runtime.clock.now
   );
   const day = getDaySnapshot(anchor, now);
+
+  // null follows today, so rollover advances the view; a chosen past Day stays.
+  const [pickedDayIndex, setPickedDayIndex] = useState<number | null>(null);
+  const selectedDay = getDaySnapshot(
+    anchor,
+    anchor + (pickedDayIndex ?? day.dayIndex) * DAY_MS
+  );
+  const dayOptions = Array.from({ length: day.dayIndex + 1 }, (_, index) =>
+    getDaySnapshot(anchor, anchor + index * DAY_MS)
+  );
 
   const nextLabelId = useRef(
     Math.max(
@@ -149,7 +159,21 @@ export default function App({ runtime }: AppProps) {
           <h1 className="text-xs font-semibold tracking-[0.28em] text-neutral-400 uppercase">
             Day Labels
           </h1>
-          <p className="text-sm text-neutral-300">{day.dayLabel}</p>
+          <select
+            aria-label="Day"
+            value={selectedDay.dayIndex}
+            onChange={(event) => {
+              const index = Number(event.target.value);
+              setPickedDayIndex(index === day.dayIndex ? null : index);
+            }}
+            className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 text-sm text-neutral-300"
+          >
+            {dayOptions.map((option) => (
+              <option key={option.dayIndex} value={option.dayIndex}>
+                {option.dayLabel}
+              </option>
+            ))}
+          </select>
         </header>
 
         <section className="flex flex-1 flex-col items-center justify-center py-16">
@@ -167,8 +191,8 @@ export default function App({ runtime }: AppProps) {
 
         <LabelsSection
           now={now}
-          dayStart={day.dayStart}
-          dayEnd={day.dayEnd}
+          dayStart={selectedDay.dayStart}
+          dayEnd={selectedDay.dayEnd}
           labels={persisted.labels}
           activeLabelId={activeLabelId}
           dynamicBlocks={dynamicBlocks}
@@ -183,8 +207,8 @@ export default function App({ runtime }: AppProps) {
           blocks={blocks}
           anchor={anchor}
           now={now}
-          dayStart={day.dayStart}
-          dayEnd={day.dayEnd}
+          dayStart={selectedDay.dayStart}
+          dayEnd={selectedDay.dayEnd}
         />
       </div>
 
