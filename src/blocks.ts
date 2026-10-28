@@ -1,5 +1,5 @@
 import { DAY_MS } from "./day";
-import type { LabelId } from "./labels";
+import type { Label, LabelId } from "./labels";
 
 export type BlockId = string;
 
@@ -137,7 +137,12 @@ export function getManualBlockError(
   blocks: Block[],
   edit: BlockEdit & { end: number },
   bounds: EditBounds,
+  labels: Label[],
 ): string | null {
+  if (!labels.some((label) => label.id === edit.labelId)) {
+    return "A Manual Block must use an active label.";
+  }
+
   return getBlockEditError(blocks, null, edit, bounds);
 }
 

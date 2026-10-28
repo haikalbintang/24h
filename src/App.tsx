@@ -76,6 +76,7 @@ export default function App({ runtime }: AppProps) {
     undoDelete,
   } = useBlocks(anchor, now, runtime.clock.now, {
     blocks: persisted.blocks,
+    labels: persisted.labels,
     activeLabelId: persisted.activeLabelId,
     lastSeen: persisted.lastSeen,
   });

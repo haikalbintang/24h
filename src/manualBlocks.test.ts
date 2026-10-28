@@ -6,6 +6,7 @@ import {
   splitBlock,
 } from "./blocks";
 import type { Block } from "./blocks";
+import type { Label } from "./labels";
 
 const MINUTE_MS = 60 * 1000;
 const dayStart = 0;
@@ -21,6 +22,11 @@ const liveBlock: Block = {
   source: "live",
 };
 
+const labels: Label[] = [
+  { id: "label-1", name: "Work", colourId: "blue" },
+  { id: "label-2", name: "Rest", colourId: "green" },
+];
+
 describe("manual Blocks", () => {
   it("creates a manual Block over Unaccounted time", () => {
     const edit = {
@@ -29,7 +35,7 @@ describe("manual Blocks", () => {
       end: 60 * MINUTE_MS,
     };
 
-    expect(getManualBlockError([liveBlock], edit, bounds)).toBeNull();
+    expect(getManualBlockError([liveBlock], edit, bounds, labels)).toBeNull();
     expect(createManualBlock([liveBlock], "block-2", edit)).toEqual([
       liveBlock,
       {
@@ -40,6 +46,18 @@ describe("manual Blocks", () => {
         source: "manual",
       },
     ]);
+  });
+
+  it("rejects a manual Block that uses an inactive label", () => {
+    const edit = {
+      labelId: "label-9",
+      start: 50 * MINUTE_MS,
+      end: 60 * MINUTE_MS,
+    };
+
+    expect(getManualBlockError([liveBlock], edit, bounds, labels)).toMatch(
+      /active label/i,
+    );
   });
 
   it.each([
@@ -54,7 +72,7 @@ describe("manual Blocks", () => {
     ["ends before it starts", 60 * MINUTE_MS, 50 * MINUTE_MS, /end must be after/i],
   ])("rejects a manual Block that %s", (_name, start, end, message) => {
     expect(
-      getManualBlockError([liveBlock], { labelId: "label-2", start, end }, bounds),
+      getManualBlockError([liveBlock], { labelId: "label-2", start, end }, bounds, labels),
     ).toMatch(message);
   });
 });

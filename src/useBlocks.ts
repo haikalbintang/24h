@@ -12,10 +12,11 @@ import {
 } from "./blocks";
 import type { Block, BlockEdit, BlockId, EditBounds } from "./blocks";
 import { HEARTBEAT_INTERVAL_MS, isReopenGap } from "./heartbeat";
-import type { LabelId } from "./labels";
+import type { Label, LabelId } from "./labels";
 
 export interface UseBlocksInitialState {
   blocks: Block[];
+  labels: Label[];
   activeLabelId: LabelId | null;
   lastSeen: number | null;
 }
@@ -249,7 +250,12 @@ export function useBlocks(
     ) => {
       const at = getNow();
       const current = splitAtDayBoundaries(blocks, anchor, at);
-      const error = getManualBlockError(current, edit, { ...bounds, now: at });
+      const error = getManualBlockError(
+        current,
+        edit,
+        { ...bounds, now: at },
+        initialState.labels,
+      );
 
       if (error) {
         return error;
@@ -259,7 +265,7 @@ export function useBlocks(
 
       return null;
     },
-    [anchor, blocks, createBlockId, getNow],
+    [anchor, blocks, createBlockId, getNow, initialState.labels],
   );
 
   const splitBlockAt = useCallback(
