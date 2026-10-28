@@ -56,6 +56,8 @@ export default function LabelsSection({
     LABEL_COLOURS[0].id,
   );
   const [editError, setEditError] = useState<string | null>(null);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isManageOpen, setIsManageOpen] = useState(false);
 
   const activeLabel =
     labels.find((label) => label.id === activeLabelId) ?? null;
@@ -91,6 +93,11 @@ export default function LabelsSection({
     setEditError(null);
   };
 
+  const toggleCreateForm = () => {
+    setIsCreateOpen((open) => !open);
+    setCreateError(null);
+  };
+
   const createLabel = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -105,6 +112,7 @@ export default function LabelsSection({
     setNewLabelName("");
     setNewLabelColourId(LABEL_COLOURS[0].id);
     setCreateError(null);
+    setIsCreateOpen(false); // collapse after creating
   };
 
   const onKeyDown = useCallback(
@@ -203,177 +211,221 @@ export default function LabelsSection({
 
       {labels.length === 0 ? (
         <p className="text-sm text-neutral-400">No labels yet.</p>
-      ) : (
-        <ul aria-label="Labels" className="flex flex-wrap gap-3">
-          {labels.map((label) => {
-            const colour = getLabelColour(label.colourId);
+      ) : null}
 
-            return (
-              <li key={label.id}>
-                <button
-                  type="button"
-                  aria-pressed={activeLabelId === label.id}
-                  aria-describedby={`label-${label.id}-colour`}
-                  onClick={() => onToggleLabel(label.id)}
-                  className="flex items-center gap-2 rounded-full border border-neutral-700 bg-neutral-900 px-4 py-2 text-sm font-medium text-neutral-200 hover:border-neutral-500 aria-pressed:border-neutral-200 aria-pressed:bg-neutral-100 aria-pressed:text-neutral-950"
-                >
-                  <span
-                    aria-hidden="true"
-                    className="h-3 w-3 rounded-full"
-                    style={{ backgroundColor: colour.value }}
-                  />
-                  {label.name}
-                </button>
-                <span id={`label-${label.id}-colour`} className="sr-only">
-                  {colour.name}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      <ul aria-label="Labels" className="flex flex-wrap gap-3">
+        {labels.map((label) => {
+          const colour = getLabelColour(label.colourId);
 
-      <form
-        aria-label="Create label"
-        onSubmit={createLabel}
-        className="grid gap-4 rounded-xl border border-neutral-800 bg-neutral-900/60 p-5"
-      >
-        <h3 className="text-sm font-semibold text-neutral-200">
-          Create a label
-        </h3>
-        <div className="grid gap-2">
-          <label
-            htmlFor="new-label-name"
-            className="text-xs font-medium text-neutral-400"
+          return (
+            <li key={label.id}>
+              <button
+                type="button"
+                aria-pressed={activeLabelId === label.id}
+                aria-describedby={`label-${label.id}-colour`}
+                onClick={() => onToggleLabel(label.id)}
+                className="flex items-center gap-2 rounded-full border border-neutral-700 bg-neutral-900 px-4 py-2 text-sm font-medium text-neutral-200 hover:border-neutral-500 aria-pressed:border-neutral-200 aria-pressed:bg-neutral-100 aria-pressed:text-neutral-950"
+              >
+                <span
+                  aria-hidden="true"
+                  className="h-3 w-3 rounded-full"
+                  style={{ backgroundColor: colour.value }}
+                />
+                {label.name}
+              </button>
+              <span id={`label-${label.id}-colour`} className="sr-only">
+                {colour.name}
+              </span>
+            </li>)
+        })}
+
+        <li>
+          <button
+            type="button"
+            aria-expanded={isCreateOpen}
+            aria-controls="create-label-form"
+            onClick={toggleCreateForm}
+            className="flex items-center gap-2 rounded-full border border-dashed border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-400 hover:border-neutral-500 hover:text-neutral-200 aria-expanded:border-neutral-200 aria-expanded:text-neutral-100"
           >
-            New label name
-          </label>
-          <input
-            id="new-label-name"
-            value={newLabelName}
-            aria-invalid={createError !== null}
-            onChange={(event) => {
-              setNewLabelName(event.target.value);
-              setCreateError(null);
-            }}
-            className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-neutral-400"
-          />
-          {createError ? (
-            <p role="alert" className="text-sm text-red-400">
-              {createError}
-            </p>
-          ) : null}
-        </div>
-        <ColourRadioGroup
-          name="new-label-colour"
-          value={newLabelColourId}
-          onChange={setNewLabelColourId}
-        />
-        <button
-          type="submit"
-          className="justify-self-start rounded-lg bg-neutral-100 px-4 py-2 text-sm font-semibold text-neutral-950 hover:bg-white"
+            <span aria-hidden="true">{isCreateOpen ? "−" : "+"}</span>
+            New label
+          </button>
+        </li>
+      </ul>
+
+      {isCreateOpen ? (
+        <form
+          id="create-label-form"
+          aria-label="Create label"
+          onSubmit={createLabel}
+          className="grid gap-4 rounded-xl border border-neutral-800 bg-neutral-900/60 p-5"
         >
-          Create label
-        </button>
-      </form>
+          <h3 className="text-sm font-semibold text-neutral-200">
+            Create a label
+          </h3>
+          <div className="grid gap-2">
+            <label
+              htmlFor="new-label-name"
+              className="text-xs font-medium text-neutral-400"
+            >
+              New label name
+            </label>
+            <input
+              id="new-label-name"
+              autoFocus
+              value={newLabelName}
+              aria-invalid={createError !== null}
+              onChange={(event) => {
+                setNewLabelName(event.target.value);
+                setCreateError(null);
+              }}
+              className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-neutral-400"
+            />
+            {createError ? (
+              <p role="alert" className="text-sm text-red-400">
+                {createError}
+              </p>
+            ) : null}
+          </div>
+          <ColourRadioGroup
+            name="new-label-colour"
+            value={newLabelColourId}
+            onChange={setNewLabelColourId}
+          />
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="submit"
+              className="rounded-lg bg-neutral-100 px-4 py-2 text-sm font-semibold text-neutral-950 hover:bg-white"
+            >
+              Create label
+            </button>
+            <button
+              type="button"
+              onClick={toggleCreateForm}
+              className="rounded-lg border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-200 hover:border-neutral-500"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : null}
 
       <div className="grid gap-3">
         <h3 className="text-sm font-semibold text-neutral-200">
-          Manage labels
+          <button
+            type="button"
+            aria-expanded={isManageOpen}
+            aria-controls="manage-labels-panel"
+            onClick={() => setIsManageOpen((open) => !open)}
+            className="flex items-center gap-2 hover:text-white"
+          >
+            <span
+              aria-hidden="true"
+              className={`inline-block transition-transform ${isManageOpen ? "rotate-90" : ""}`}
+            >
+              ▸
+            </span>
+            Manage labels
+          </button>
         </h3>
-        {labels.length === 0 ? (
-          <p className="text-sm text-neutral-400">
-            Create a label to manage it here.
-          </p>
-        ) : (
-          <ul aria-label="Label manager" className="grid gap-3">
-            {labels.map((label) => {
-              const colour = getLabelColour(label.colourId);
 
-              return (
-                <li
-                  key={label.id}
-                  className="rounded-xl border border-neutral-800 bg-neutral-900/60"
-                >
-                  {editingLabelId === label.id ? (
-                    <form
-                      aria-label={`Edit ${label.name}`}
-                      onSubmit={saveLabel}
-                      className="grid gap-3 p-4"
+        {isManageOpen ? (
+          <div id="manage-labels-panel">
+            {labels.length === 0 ? (
+              <p className="text-sm text-neutral-400">
+                Create a label to manage it here.
+              </p>
+            ) : (
+              <ul aria-label="Label manager" className="grid gap-3">
+                {labels.map((label) => {
+                  const colour = getLabelColour(label.colourId);
+
+                  return (
+                    <li
+                      key={label.id}
+                      className="rounded-xl border border-neutral-800 bg-neutral-900/60"
                     >
-                      <div className="grid gap-2">
-                        <label
-                          htmlFor={`edit-label-name-${label.id}`}
-                          className="text-xs font-medium text-neutral-400"
+                      {editingLabelId === label.id ? (
+                        <form
+                          aria-label={`Edit ${label.name}`}
+                          onSubmit={saveLabel}
+                          className="grid gap-3 p-4"
                         >
-                          Label name
-                        </label>
-                        <input
-                          id={`edit-label-name-${label.id}`}
-                          value={editLabelName}
-                          aria-invalid={editError !== null}
-                          onChange={(event) => {
-                            setEditLabelName(event.target.value);
-                            setEditError(null);
-                          }}
-                          className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-neutral-400"
-                        />
-                        {editError ? (
-                          <p role="alert" className="text-sm text-red-400">
-                            {editError}
-                          </p>
-                        ) : null}
-                      </div>
-                      <ColourRadioGroup
-                        name="edit-label-colour"
-                        value={editLabelColourId}
-                        onChange={setEditLabelColourId}
-                      />
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="submit"
-                          className="rounded-lg bg-neutral-100 px-4 py-2 text-sm font-semibold text-neutral-950 hover:bg-white"
-                        >
-                          Save changes
-                        </button>
-                        <button
-                          type="button"
-                          onClick={cancelEditingLabel}
-                          className="rounded-lg border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-200 hover:border-neutral-500"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </form>
-                  ) : (
-                    <div className="flex flex-wrap items-center justify-between gap-3 p-4">
-                      <div className="flex items-center gap-2">
-                        <span
-                          aria-hidden="true"
-                          className="h-3 w-3 rounded-full"
-                          style={{ backgroundColor: colour.value }}
-                        />
-                        <span className="text-sm font-medium text-neutral-100">
-                          {label.name}
-                        </span>
-                        <span className="text-xs text-neutral-500">
-                          {colour.name}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => startEditingLabel(label)}
-                        className="rounded-lg border border-neutral-700 px-3 py-1.5 text-sm font-medium text-neutral-200 hover:border-neutral-500"
-                      >
-                        Edit {label.name}
-                      </button>
-                    </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
+                          <div className="grid gap-2">
+                            <label
+                              htmlFor={`edit-label-name-${label.id}`}
+                              className="text-xs font-medium text-neutral-400"
+                            >
+                              Label name
+                            </label>
+                            <input
+                              id={`edit-label-name-${label.id}`}
+                              value={editLabelName}
+                              aria-invalid={editError !== null}
+                              onChange={(event) => {
+                                setEditLabelName(event.target.value);
+                                setEditError(null);
+                              }}
+                              className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-neutral-400"
+                            />
+                            {editError ? (
+                              <p role="alert" className="text-sm text-red-400">
+                                {editError}
+                              </p>
+                            ) : null}
+                          </div>
+                          <ColourRadioGroup
+                            name="edit-label-colour"
+                            value={editLabelColourId}
+                            onChange={setEditLabelColourId}
+                          />
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="submit"
+                              className="rounded-lg bg-neutral-100 px-4 py-2 text-sm font-semibold text-neutral-950 hover:bg-white"
+                            >
+                              Save changes
+                            </button>
+                            <button
+                              type="button"
+                              onClick={cancelEditingLabel}
+                              className="rounded-lg border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-200 hover:border-neutral-500"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </form>
+                      ) : (
+                        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2">
+                          <div className="flex items-center gap-2">
+                            <span
+                              aria-hidden="true"
+                              className="h-3 w-3 rounded-full"
+                              style={{ backgroundColor: colour.value }}
+                            />
+                            <span className="text-sm font-medium text-neutral-100">
+                              {label.name}
+                            </span>
+                            <span className="text-xs text-neutral-500">
+                              {colour.name}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => startEditingLabel(label)}
+                            className="rounded-lg border border-neutral-700 px-3 py-1.5 text-sm font-medium text-neutral-200 hover:border-neutral-500"
+                          >
+                            Edit {label.name}
+                          </button>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        ) : null}
       </div>
     </section>
   );

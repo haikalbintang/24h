@@ -65,7 +65,7 @@ export default function TotalsSection(props: TotalsSectionProps) {
           {props.labels.map((label) => (
             <li
               key={label.id}
-              className="flex items-center justify-between gap-3 text-sm text-neutral-200"
+              className="flex items-center justify-between gap-3 py-1.5 text-sm text-neutral-200"
             >
               <span className="flex items-center gap-2">
                 <span
@@ -82,7 +82,7 @@ export default function TotalsSection(props: TotalsSectionProps) {
               </span>
             </li>
           ))}
-          <li className="flex items-center justify-between gap-3 border-t border-neutral-800 pt-2 text-sm text-neutral-400">
+          <li className="flex items-center justify-between gap-3 border-t border-neutral-800 pt-3 text-sm text-neutral-400">
             <span className="flex items-center gap-2">
               <span
                 aria-hidden="true"
@@ -106,8 +106,8 @@ export default function TotalsSection(props: TotalsSectionProps) {
           {segments.map((segment) => {
             const label = segment.labelId
               ? props.labels.find(
-                  (candidate) => candidate.id === segment.labelId,
-                )
+                (candidate) => candidate.id === segment.labelId,
+              )
               : undefined;
             const left = ((segment.start - props.dayStart) / DAY_MS) * 100;
             const width = ((segment.end - segment.start) / DAY_MS) * 100;

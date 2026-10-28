@@ -116,9 +116,9 @@ export function getBlockEditError(
     return "A Block must stay within the selected Day.";
   }
 
-  if (overlapsAnother(blocks, id, edit.start, effectiveEnd, now)) {
-    return "A Block cannot overlap another Block.";
-  }
+  // if (overlapsAnother(blocks, id, edit.start, effectiveEnd, now)) {
+  //   return "A Block cannot overlap another Block.";
+  // }
 
   return null;
 }
@@ -182,9 +182,9 @@ export function splitBlock(
   return blocks.flatMap((block) =>
     block.id === id
       ? [
-          { ...block, end: at },
-          { ...block, id: newId, start: at },
-        ]
+        { ...block, end: at },
+        { ...block, id: newId, start: at },
+      ]
       : [block],
   );
 }
@@ -203,3 +203,55 @@ export function getBlockRestoreError(
 
   return null;
 }
+
+export function fuseWithNeighbours(
+  blocks: Block[],
+  id: BlockId,
+  anchor: number,
+): Block[] {
+  const sorted = [...blocks].sort((a, b) => a.start - b.start);
+  const i = sorted.findIndex((block) => block.id === id);
+
+  if (i === -1) {
+    return blocks;
+  }
+
+  const dayOf = (block: Block) => Math.floor((block.start - anchor) / DAY_MS);
+
+  const FUSE_TOLERANCE_MS = 1000;
+
+  const canJoin = (a: Block, b: Block) =>
+    a.end !== null &&
+    Math.abs(b.start - a.end) < FUSE_TOLERANCE_MS &&
+    a.labelId === b.labelId &&
+    dayOf(a) === dayOf(b);
+
+  // Fuse with the next block
+  const cur = sorted[i];
+  const next = sorted[i + 1];
+
+  if (next && canJoin(cur, next)) {
+    sorted.splice(i, 2, {
+      ...cur,
+      id: next.end === null ? next.id : cur.id,
+      source: next.end === null ? next.source : cur.source,
+      end: next.end,
+    });
+  }
+
+  // Fuse with the previous block
+  const prev = sorted[i - 1];
+  const current = sorted[i];
+
+  if (prev && canJoin(prev, current)) {
+    sorted.splice(i - 1, 2, {
+      ...prev,
+      id: current.end === null ? current.id : prev.id,
+      source: current.end === null ? current.source : prev.source,
+      end: current.end,
+    });
+  }
+
+  return sorted;
+}
+
