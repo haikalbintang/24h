@@ -3,11 +3,14 @@ import type { LabelId } from "./labels";
 
 export type BlockId = string;
 
+export type BlockSource = "live" | "manual";
+
 export interface Block {
   id: BlockId;
   labelId: LabelId;
   start: number;
   end: number | null;
+  source: BlockSource;
 }
 
 export function getBlockDuration(block: Block, now: number): number {
@@ -51,6 +54,7 @@ export function splitAtDayBoundaries(
       labelId,
       start: dayEnd,
       end: null,
+      source: result[index].source,
     });
     index = result.length - 1;
   }
@@ -93,7 +97,7 @@ function overlapsAnother(
 
 export function getBlockEditError(
   blocks: Block[],
-  id: BlockId,
+  id: BlockId | null,
   edit: BlockEdit,
   bounds: EditBounds,
 ): string | null {
@@ -127,6 +131,22 @@ export function editBlock(
   return blocks.map((block) =>
     block.id === id ? { ...block, ...edit } : block,
   );
+}
+
+export function getManualBlockError(
+  blocks: Block[],
+  edit: BlockEdit & { end: number },
+  bounds: EditBounds,
+): string | null {
+  return getBlockEditError(blocks, null, edit, bounds);
+}
+
+export function createManualBlock(
+  blocks: Block[],
+  id: BlockId,
+  edit: BlockEdit & { end: number },
+): Block[] {
+  return [...blocks, { id, ...edit, source: "manual" }];
 }
 
 export function getBlockSplitError(

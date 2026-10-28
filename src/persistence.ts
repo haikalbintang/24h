@@ -97,7 +97,10 @@ function parsePersistedState(value: unknown): PersistedState | null {
     if (!isBlock(entry)) {
       return null
     }
-    blocks.push(entry)
+    blocks.push({
+      ...entry,
+      source: (entry as { source?: unknown }).source === 'manual' ? 'manual' : 'live',
+    })
   }
 
   return {
@@ -126,7 +129,7 @@ function isLabel(value: unknown): value is Label {
   )
 }
 
-function isBlock(value: unknown): value is Block {
+function isBlock(value: unknown): value is Omit<Block, 'source'> {
   if (typeof value !== 'object' || value === null) {
     return false
   }
