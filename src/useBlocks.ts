@@ -3,7 +3,6 @@ import {
   closeActiveBlock,
   createManualBlock,
   editBlock as applyBlockEdit,
-  fuseWithNeighbours,
   getBlockEditError,
   getBlockRestoreError,
   getBlockSplitError,
@@ -216,9 +215,7 @@ export function useBlocks(
         return error;
       }
 
-      setBlocks(
-        fuseWithNeighbours(applyBlockEdit(current, id, fullEdit), id, anchor),
-      );
+      setBlocks(applyBlockEdit(current, id, fullEdit));
 
       if (target.end === null) {
         setActiveLabelId(edit.labelId);
@@ -264,11 +261,7 @@ export function useBlocks(
         return error;
       }
 
-      const newId = createBlockId();
-
-      setBlocks(
-        fuseWithNeighbours(createManualBlock(current, newId, edit), newId, anchor),
-      );
+      setBlocks(createManualBlock(current, createBlockId(), edit));
 
       return null;
     },
