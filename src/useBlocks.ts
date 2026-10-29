@@ -3,6 +3,7 @@ import {
   closeActiveBlock,
   createManualBlock,
   editBlock as applyBlockEdit,
+  fuseWithNeighbours,
   getBlockEditError,
   getBlockRestoreError,
   getBlockSplitError,
@@ -51,6 +52,7 @@ export interface UseBlocksResult {
   ) => string | null;
   splitBlock: (id: BlockId, at: number) => string | null;
   deleteBlock: (id: BlockId) => void;
+  deleteBlocksByLabel: (labelId: LabelId) => void;
   deletedBlock: DeletedBlock | null;
   undoDelete: () => string | null;
 }
@@ -215,7 +217,9 @@ export function useBlocks(
         return error;
       }
 
-      setBlocks(applyBlockEdit(current, id, fullEdit));
+      setBlocks(
+        fuseWithNeighbours(applyBlockEdit(current, id, fullEdit), id, anchor),
+      );
 
       if (target.end === null) {
         setActiveLabelId(edit.labelId);
@@ -243,6 +247,21 @@ export function useBlocks(
     [anchor, blocks, getNow],
   );
 
+  const deleteBlocksByLabel = useCallback(
+    (labelId: LabelId) => {
+      setBlocks((current) =>
+        current.filter((block) => block.labelId !== labelId),
+      );
+      if (activeLabelId === labelId) {
+        setActiveLabelId(null);
+      }
+      if (deletedBlock?.block.labelId === labelId) {
+        setDeletedBlock(null);
+      }
+    },
+    [activeLabelId, deletedBlock],
+  );
+
   const addManualBlock = useCallback(
     (
       edit: BlockEdit & { end: number },
@@ -261,7 +280,11 @@ export function useBlocks(
         return error;
       }
 
-      setBlocks(createManualBlock(current, createBlockId(), edit));
+      const newId = createBlockId();
+
+      setBlocks(
+        fuseWithNeighbours(createManualBlock(current, newId, edit), newId, anchor),
+      );
 
       return null;
     },
@@ -321,6 +344,7 @@ export function useBlocks(
     addManualBlock,
     splitBlock: splitBlockAt,
     deleteBlock,
+    deleteBlocksByLabel,
     deletedBlock,
     undoDelete,
   };

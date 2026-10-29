@@ -1,9 +1,138 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { formatClock, parseClock } from "./day";
 import { getBlockDuration } from "./blocks";
 import type { Block } from "./blocks";
 import { getLabelColour } from "./labels";
 import type { Label, LabelId } from "./labels";
+
+function Icon({ children }: { children: React.ReactNode }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      width="16"
+      height="16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {children}
+    </svg>
+  );
+}
+
+const PencilIcon = () => (
+  <Icon>
+    <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
+    <path d="m15 5 4 4" />
+  </Icon>
+);
+
+const ScissorsIcon = () => (
+  <Icon>
+    <circle cx="6" cy="6" r="3" />
+    <path d="M8.12 8.12 12 12" />
+    <path d="M20 4 8.12 15.88" />
+    <circle cx="6" cy="18" r="3" />
+    <path d="M14.8 14.8 20 20" />
+  </Icon>
+);
+
+const TrashIcon = () => (
+  <Icon>
+    <path d="M3 6h18" />
+    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+    <line x1="10" x2="10" y1="11" y2="17" />
+    <line x1="14" x2="14" y1="11" y2="17" />
+  </Icon>
+);
+
+const KebabIcon = () => (
+  <Icon>
+    <circle cx="12" cy="5" r="1" />
+    <circle cx="12" cy="12" r="1" />
+    <circle cx="12" cy="19" r="1" />
+  </Icon>
+);
+
+interface BlockMenuItem {
+  label: string;
+  icon: React.ReactNode;
+  onSelect: () => void;
+  danger?: boolean;
+}
+
+function BlockMenu({ items }: { items: BlockMenuItem[] }) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        aria-label="Block actions"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title="More actions"
+        onClick={() => setOpen((value) => !value)}
+        className={`${iconButtonClass} hover:border-neutral-500`}
+      >
+        <KebabIcon />
+      </button>
+      {open ? (
+        <ul
+          role="menu"
+          aria-label="Block actions"
+          className="absolute right-0 z-10 mt-1 min-w-36 rounded-lg border border-neutral-700 bg-neutral-900 p-1 shadow-lg"
+        >
+          {items.map((item) => (
+            <li key={item.label} role="none">
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  item.onSelect();
+                }}
+                className={`flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm hover:bg-neutral-800 ${item.danger ? "text-red-400" : "text-neutral-200"
+                  }`}
+              >
+                {item.icon}
+                {item.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+const iconButtonClass =
+  "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-neutral-700 text-neutral-200";
 
 export interface BlockEditRequest {
   start: number;
@@ -48,10 +177,10 @@ export default function BlocksSection({
   const [manualEndText, setManualEndText] = useState("");
   const [manualLabelId, setManualLabelId] = useState<LabelId>("");
   const [manualError, setManualError] = useState<string | null>(null);
-  const [startText, setStartText] = useState("");
-  const [endText, setEndText] = useState("");
   const [labelId, setLabelId] = useState<LabelId>("");
   const [error, setError] = useState<string | null>(null);
+  const [isManualOpen, setIsManualOpen] = useState(false);
+  const [isBlocksOpen, setIsBlocksOpen] = useState(true);
 
   const labelMap = new Map(labels.map((label) => [label.id, label]));
 
@@ -61,8 +190,6 @@ export default function BlocksSection({
 
   const startEditing = (block: Block) => {
     setEditingId(block.id);
-    setStartText(formatClock(block.start - dayStart));
-    setEndText(block.end === null ? "" : formatClock(block.end - dayStart));
     setLabelId(block.labelId);
     setError(null);
   };
@@ -122,25 +249,16 @@ export default function BlocksSection({
       return;
     }
 
-    setManualStartText("");
-    setManualEndText("");
-    setManualError(null);
+    closeManual();
   };
 
   const saveBlock = (event: React.FormEvent<HTMLFormElement>, block: Block) => {
     event.preventDefault();
 
-    const startOffset = parseClock(startText);
-    const endOffset = block.end === null ? null : parseClock(endText);
-
-    if (startOffset === null || (block.end !== null && endOffset === null)) {
-      setError("Enter times as HH:MM:SS.");
-      return;
-    }
-
+    // Preserve exact existing start and end timestamps
     const result = onEditBlock(block.id, {
-      start: dayStart + startOffset,
-      end: endOffset === null ? null : dayStart + endOffset,
+      start: block.start,
+      end: block.end,
       labelId,
     });
 
@@ -153,258 +271,289 @@ export default function BlocksSection({
     setError(null);
   };
 
+  const closeManual = () => {
+    setIsManualOpen(false);
+    setManualStartText("");
+    setManualEndText("");
+    setManualLabelId("");
+    setManualError(null);
+  };
+
   return (
-    <section aria-labelledby="blocks-heading" className="grid gap-3">
+    <section
+      aria-labelledby="blocks-heading"
+      className="grid gap-6 border-t border-neutral-800 py-6"
+    >
       <h2
         id="blocks-heading"
         className="text-xs font-semibold tracking-[0.28em] text-neutral-400 uppercase"
       >
-        Blocks
+        <button
+          type="button"
+          aria-expanded={isBlocksOpen}
+          aria-controls="blocks-panel"
+          onClick={() => setIsBlocksOpen((open) => !open)}
+          className="flex items-center gap-2 uppercase hover:text-neutral-200"
+        >
+          <span
+            aria-hidden="true"
+            className={`inline-block transition-transform ${isBlocksOpen ? "rotate-90" : ""}`}
+          >
+            ▸
+          </span>
+          Blocks
+        </button>
       </h2>
-      {todaysBlocks.length === 0 ? (
-        <p className="text-sm text-neutral-400">No blocks yet.</p>
-      ) : (
-        <ul aria-label="Blocks" className="grid gap-2">
-          {todaysBlocks.map((block) => {
-            const label = labelMap.get(block.labelId);
-            const colour = label ? getLabelColour(label.colourId) : null;
-            const startLabel = formatClock(block.start - dayStart);
-            const endLabel =
-              block.end === null
-                ? "Ongoing"
-                : formatClock(block.end - dayStart);
-            const duration = formatClock(getBlockDuration(block, now));
+      {isBlocksOpen ? (
+        <div id="blocks-panel" className="grid gap-3">
+          {todaysBlocks.length === 0 ? (
+            <p className="text-sm text-neutral-400">No blocks yet.</p>
+          ) : (
+            <ul aria-label="Blocks" className="grid gap-2">
+              {todaysBlocks.map((block) => {
+                const label = labelMap.get(block.labelId);
+                const colour = label ? getLabelColour(label.colourId) : null;
+                const startLabel = formatClock(block.start - dayStart);
+                const endLabel =
+                  block.end === null
+                    ? "Ongoing"
+                    : formatClock(block.end - dayStart);
+                const duration = formatClock(getBlockDuration(block, now));
 
-            return (
-              <li
-                key={block.id}
-                aria-describedby={`block-${block.id}-colour`}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-neutral-800 bg-neutral-900/40 px-4 py-2"
-              >
-                <div className="flex items-center gap-2">
-                  {colour ? (
-                    <span
-                      aria-hidden="true"
-                      className="h-3 w-3 rounded-full"
-                      style={{ backgroundColor: colour.value }}
-                    />
-                  ) : null}
-                  <span className="text-sm font-medium text-neutral-100">
-                    {label ? label.name : "Unknown"}
-                  </span>
-                  {block.source === "manual" ? (
-                    <span className="rounded border border-neutral-700 px-1.5 py-0.5 text-xs text-neutral-400">
-                      Manual
-                    </span>
-                  ) : null}
-                </div>
-                <div className="flex flex-wrap items-center gap-3 text-sm text-neutral-400">
-                  <span>
-                    {startLabel} – {endLabel}
-                  </span>
-                  <span className="font-mono tabular-nums">{duration}</span>
-                  <button
-                    type="button"
-                    aria-label="Edit block"
-                    onClick={() => startEditing(block)}
-                    className="rounded-lg border border-neutral-700 px-3 py-1 text-neutral-200 hover:border-neutral-500"
+                return (
+                  <li
+                    key={block.id}
+                    aria-describedby={`block-${block.id}-colour`}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-neutral-800 bg-neutral-900/40 px-4 py-2"
                   >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="Split block"
-                    onClick={() => startSplitting(block)}
-                    className="rounded-lg border border-neutral-700 px-3 py-1 text-neutral-200 hover:border-neutral-500"
-                  >
-                    Split
-                  </button>
-                  {block.end === null ? null : (
-                    <button
-                      type="button"
-                      aria-label="Delete block"
-                      onClick={() => onDeleteBlock(block.id)}
-                      className="rounded-lg border border-neutral-700 px-3 py-1 text-neutral-200 hover:border-red-500"
-                    >
-                      Delete
-                    </button>
-                  )}
-                </div>
-                {splittingId === block.id ? (
-                  <form
-                    aria-label="Split block"
-                    onSubmit={(event) => saveSplit(event, block)}
-                    className="grid w-full gap-3 pt-2"
-                  >
-                    <label className="grid gap-1 text-xs text-neutral-400">
-                      Split at
-                      <input
-                        value={splitText}
-                        aria-invalid={splitError !== null}
-                        onChange={(event) => {
-                          setSplitText(event.target.value);
-                          setSplitError(null);
-                        }}
-                        className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 font-mono text-sm text-neutral-100"
-                      />
-                    </label>
-                    {splitError ? (
-                      <p role="alert" className="text-sm text-red-400">
-                        {splitError}
-                      </p>
-                    ) : null}
-                    <div className="flex gap-2">
-                      <button
-                        type="submit"
-                        className="rounded-lg bg-neutral-100 px-4 py-1.5 text-sm font-semibold text-neutral-950 hover:bg-white"
-                      >
-                        Split
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSplittingId(null)}
-                        className="rounded-lg border border-neutral-700 px-4 py-1.5 text-sm text-neutral-200 hover:border-neutral-500"
-                      >
-                        Cancel
-                      </button>
+                    <div className="flex items-center gap-2">
+                      {colour ? (
+                        <span
+                          aria-hidden="true"
+                          className="relative flex h-3 w-3"
+                        >
+                          {block.end === null ? (
+                            <span
+                              className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
+                              style={{ backgroundColor: colour.value }}
+                            />
+                          ) : null}
+                          <span
+                            className="relative inline-flex h-3 w-3 rounded-full"
+                            style={{ backgroundColor: colour.value }}
+                          />
+                        </span>
+                      ) : null}
+                      <span className="text-sm font-medium text-neutral-100">
+                        {label ? label.name : "Unknown"}
+                      </span>
+                      {block.source === "manual" ? (
+                        <span className="rounded border border-neutral-700 px-1.5 py-0.5 text-xs text-neutral-400">
+                          Manual
+                        </span>
+                      ) : null}
                     </div>
-                  </form>
-                ) : null}
-                {editingId === block.id ? (
-                  <form
-                    aria-label="Edit block"
-                    onSubmit={(event) => saveBlock(event, block)}
-                    className="grid w-full gap-3 pt-2"
-                  >
-                    <div className="flex flex-wrap gap-3">
-                      <label className="grid gap-1 text-xs text-neutral-400">
-                        Start
-                        <input
-                          value={startText}
-                          aria-invalid={error !== null}
-                          onChange={(event) => {
-                            setStartText(event.target.value);
-                            setError(null);
-                          }}
-                          className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 font-mono text-sm text-neutral-100"
-                        />
-                      </label>
-                      {block.end === null ? null : (
+                    <div className="flex flex-wrap items-center gap-3 text-sm text-neutral-400">
+                      <span>
+                        {startLabel} – {endLabel}
+                      </span>
+                      <span
+                        className={`font-mono tabular-nums ${
+                          block.end === null ? "font-medium text-neutral-100" : ""
+                        }`}
+                      >
+                        {duration}
+                      </span>
+                      <BlockMenu
+                        items={[
+                          {
+                            label: "Edit label",
+                            icon: <PencilIcon />,
+                            onSelect: () => startEditing(block),
+                          },
+                          {
+                            label: "Split",
+                            icon: <ScissorsIcon />,
+                            onSelect: () => startSplitting(block),
+                          },
+                          // Ongoing blocks can't be deleted, same as before
+                          ...(block.end === null
+                            ? []
+                            : [
+                              {
+                                label: "Delete",
+                                icon: <TrashIcon />,
+                                onSelect: () => onDeleteBlock(block.id),
+                                danger: true,
+                              },
+                            ]),
+                        ]}
+                      />
+                    </div>
+                    {splittingId === block.id ? (
+                      <form
+                        aria-label="Split block"
+                        onSubmit={(event) => saveSplit(event, block)}
+                        className="grid w-full gap-3 pt-2"
+                      >
                         <label className="grid gap-1 text-xs text-neutral-400">
-                          End
+                          Split at
                           <input
-                            value={endText}
-                            aria-invalid={error !== null}
+                            value={splitText}
+                            aria-invalid={splitError !== null}
                             onChange={(event) => {
-                              setEndText(event.target.value);
-                              setError(null);
+                              setSplitText(event.target.value);
+                              setSplitError(null);
                             }}
                             className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 font-mono text-sm text-neutral-100"
                           />
                         </label>
-                      )}
-                      <label className="grid gap-1 text-xs text-neutral-400">
-                        Label
-                        <select
-                          value={labelId}
-                          onChange={(event) => setLabelId(event.target.value)}
-                          className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 text-sm text-neutral-100"
-                        >
-                          {labels.map((option) => (
-                            <option key={option.id} value={option.id}>
-                              {option.name}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    </div>
-                    {error ? (
-                      <p role="alert" className="text-sm text-red-400">
-                        {error}
-                      </p>
+                        {splitError ? (
+                          <p role="alert" className="text-sm text-red-400">
+                            {splitError}
+                          </p>
+                        ) : null}
+                        <div className="flex gap-2">
+                          <button
+                            type="submit"
+                            className="rounded-lg bg-neutral-100 px-4 py-1.5 text-sm font-semibold text-neutral-950 hover:bg-white"
+                          >
+                            Split
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSplittingId(null)}
+                            className="rounded-lg border border-neutral-700 px-4 py-1.5 text-sm text-neutral-200 hover:border-neutral-500"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
                     ) : null}
-                    <div className="flex gap-2">
-                      <button
-                        type="submit"
-                        className="rounded-lg bg-neutral-100 px-4 py-1.5 text-sm font-semibold text-neutral-950 hover:bg-white"
+                    {editingId === block.id ? (
+                      <form
+                        aria-label="Edit block label"
+                        onSubmit={(event) => saveBlock(event, block)}
+                        className="grid w-full gap-3 pt-2"
                       >
-                        Save block
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setEditingId(null)}
-                        className="rounded-lg border border-neutral-700 px-4 py-1.5 text-sm text-neutral-200 hover:border-neutral-500"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
-                ) : null}
-                <span id={`block-${block.id}-colour`} className="sr-only">
-                  {colour ? colour.name : ""}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-      <form
-        aria-label="Add manual block"
-        onSubmit={addManualBlock}
-        className="grid gap-3 rounded-lg border border-neutral-800 bg-neutral-900/40 p-4"
-      >
-        <div className="flex flex-wrap gap-3">
-          <label className="grid gap-1 text-xs text-neutral-400">
-            New start
-            <input
-              value={manualStartText}
-              aria-invalid={manualError !== null}
-              onChange={(event) => {
-                setManualStartText(event.target.value);
-                setManualError(null);
-              }}
-              className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 font-mono text-sm text-neutral-100"
-            />
-          </label>
-          <label className="grid gap-1 text-xs text-neutral-400">
-            New end
-            <input
-              value={manualEndText}
-              aria-invalid={manualError !== null}
-              onChange={(event) => {
-                setManualEndText(event.target.value);
-                setManualError(null);
-              }}
-              className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 font-mono text-sm text-neutral-100"
-            />
-          </label>
-          <label className="grid gap-1 text-xs text-neutral-400">
-            Label
-            <select
-              value={manualLabelId || (labels[0]?.id ?? "")}
-              onChange={(event) => setManualLabelId(event.target.value)}
-              className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 text-sm text-neutral-100"
+                        <div className="flex flex-wrap gap-3">
+                          <label className="grid gap-1 text-xs text-neutral-400">
+                            Label
+                            <select
+                              value={labelId}
+                              onChange={(event) => setLabelId(event.target.value)}
+                              className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 text-sm text-neutral-100"
+                            >
+                              {labels.map((option) => (
+                                <option key={option.id} value={option.id}>
+                                  {option.name}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        </div>
+                        {error ? (
+                          <p role="alert" className="text-sm text-red-400">
+                            {error}
+                          </p>
+                        ) : null}
+                        <div className="flex gap-2">
+                          <button
+                            type="submit"
+                            className="rounded-lg bg-neutral-100 px-4 py-1.5 text-sm font-semibold text-neutral-950 hover:bg-white"
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingId(null)}
+                            className="rounded-lg border border-neutral-700 px-4 py-1.5 text-sm text-neutral-200 hover:border-neutral-500"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    ) : null}
+                    <span id={`block-${block.id}-colour`} className="sr-only">
+                      {colour ? colour.name : ""}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {isManualOpen ? (
+            <form
+              id="manual-block-form"
+              aria-label="Add manual block"
+              onSubmit={addManualBlock}
+              className="grid gap-3 rounded-lg border border-neutral-800 bg-neutral-900/40 p-4"
             >
-              {labels.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.name}
-                </option>
-              ))}
-            </select>
-          </label>
+              <div className="flex flex-wrap gap-3">
+                <label className="grid gap-1 text-xs text-neutral-400">
+                  New start
+                  <input
+                    autoFocus
+                    value={manualStartText}
+                    aria-invalid={manualError !== null}
+                    onChange={(event) => {
+                      setManualStartText(event.target.value);
+                      setManualError(null);
+                    }}
+                    className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 font-mono text-sm text-neutral-100"
+                  />
+                </label>
+                <label className="grid gap-1 text-xs text-neutral-400">
+                  New end
+                  <input
+                    value={manualEndText}
+                    aria-invalid={manualError !== null}
+                    onChange={(event) => {
+                      setManualEndText(event.target.value);
+                      setManualError(null);
+                    }}
+                    className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 font-mono text-sm text-neutral-100"
+                  />
+                </label>
+                <label className="grid gap-1 text-xs text-neutral-400">
+                  Label
+                  <select
+                    value={manualLabelId || (labels[0]?.id ?? "")}
+                    onChange={(event) => setManualLabelId(event.target.value)}
+                    className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 text-sm text-neutral-100"
+                  >
+                    {labels.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              {manualError ? (
+                <p role="alert" className="text-sm text-red-400">
+                  {manualError}
+                </p>
+              ) : null}
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  className="rounded-lg bg-neutral-100 px-4 py-1.5 text-sm font-semibold text-neutral-950 hover:bg-white"
+                >
+                  Add manual block
+                </button>
+                <button
+                  type="button"
+                  onClick={closeManual}
+                  className="rounded-lg border border-neutral-700 px-4 py-1.5 text-sm text-neutral-200 hover:border-neutral-500"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          ) : null}
         </div>
-        {manualError ? (
-          <p role="alert" className="text-sm text-red-400">
-            {manualError}
-          </p>
-        ) : null}
-        <button
-          type="submit"
-          className="justify-self-start rounded-lg bg-neutral-100 px-4 py-1.5 text-sm font-semibold text-neutral-950 hover:bg-white"
-        >
-          Add manual block
-        </button>
-      </form>
+      ) : null}
     </section>
   );
 }

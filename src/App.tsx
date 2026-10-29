@@ -72,6 +72,7 @@ export default function App({ runtime }: AppProps) {
     addManualBlock,
     splitBlock,
     deleteBlock,
+    deleteBlocksByLabel,
     deletedBlock,
     undoDelete,
   } = useBlocks(anchor, now, runtime.clock.now, {
@@ -156,6 +157,14 @@ export default function App({ runtime }: AppProps) {
     return null;
   };
 
+  const deleteLabel = (labelId: LabelId) => {
+    deleteBlocksByLabel(labelId);
+    setPersisted((current) => ({
+      ...current,
+      labels: current.labels.filter((label) => label.id !== labelId),
+    }));
+  };
+
   return (
     <main
       className="min-h-screen bg-neutral-950 text-neutral-100"
@@ -165,8 +174,8 @@ export default function App({ runtime }: AppProps) {
         className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-6 py-8 sm:px-10"
         inert={reopenPromptOpen}
       >
-        <header className="flex flex-wrap items-baseline justify-between gap-3 border-b border-neutral-800 pb-5">
-          <h1 className="text-xs font-semibold tracking-[0.28em] text-neutral-400 uppercase">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-800 pb-5">
+          <h1 className="text-xs font-semibold tracking-[0.28em] text-neutral-500 uppercase">
             Day Labels
           </h1>
           <select
@@ -176,7 +185,7 @@ export default function App({ runtime }: AppProps) {
               const index = Number(event.target.value);
               setPickedDayIndex(index === day.dayIndex ? null : index);
             }}
-            className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 text-sm text-neutral-300"
+            className="rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 transition-colors hover:border-neutral-500 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
           >
             {dayOptions.map((option) => (
               <option key={option.dayIndex} value={option.dayIndex}>
@@ -230,9 +239,11 @@ export default function App({ runtime }: AppProps) {
           onToggleLabel={toggleLabel}
           onCreateLabel={createLabel}
           onRenameLabel={renameLabel}
+          onDeleteLabel={deleteLabel}
         />
         <TotalsSection
           labels={persisted.labels}
+          activeLabelId={activeLabelId}
           blocks={blocks}
           anchor={anchor}
           now={now}

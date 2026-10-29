@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { DAY_MS, formatClock } from "./day";
 import { getLabelColour } from "./labels";
 import type { Block } from "./blocks";
@@ -11,6 +12,7 @@ import {
 
 export interface TotalsSectionProps {
   labels: Label[];
+  activeLabelId?: LabelId | null;
   blocks: Block[];
   anchor: number;
   now: number;
@@ -19,6 +21,7 @@ export interface TotalsSectionProps {
 }
 
 export default function TotalsSection(props: TotalsSectionProps) {
+  const [isTotalsOpen, setIsTotalsOpen] = useState(true);
   const totals = labelTotalsForDay(
     props.blocks,
     props.dayStart,
@@ -50,140 +53,218 @@ export default function TotalsSection(props: TotalsSectionProps) {
   const labelName = (labelId: LabelId) =>
     props.labels.find((label) => label.id === labelId)?.name ?? labelId;
 
+  const runningLabelId =
+    props.activeLabelId !== undefined
+      ? props.activeLabelId
+      : (props.blocks.find((block) => block.end === null)?.labelId ?? null);
+
+  // Sort labels descending by total duration
+  const sortedLabels = [...props.labels].sort((a, b) => {
+    const totalA = totals.get(a.id) ?? 0;
+    const totalB = totals.get(b.id) ?? 0;
+    return totalB - totalA;
+  });
+
+  const pieBackground = (() => {
+    const stops: string[] = [];
+    let cumulative = 0;
+
+    for (const label of sortedLabels) {
+      const ms = totals.get(label.id) ?? 0;
+      if (ms <= 0) continue;
+      const startPct = (cumulative / DAY_MS) * 100;
+      cumulative += ms;
+      const endPct = (cumulative / DAY_MS) * 100;
+      stops.push(
+        `${getLabelColour(label.colourId).value} ${startPct}% ${endPct}%`,
+      );
+    }
+
+    if (unaccounted > 0) {
+      const startPct = (cumulative / DAY_MS) * 100;
+      cumulative += unaccounted;
+      const endPct = (cumulative / DAY_MS) * 100;
+      stops.push(`#404040 ${startPct}% ${endPct}%`);
+    }
+
+    if (cumulative < DAY_MS) {
+      const endPct = (cumulative / DAY_MS) * 100;
+      stops.push(`transparent ${endPct}% 100%`);
+    }
+
+    return stops.length > 0 ? `conic-gradient(${stops.join(", ")})` : undefined;
+  })();
+
   return (
     <section
       aria-label="Totals"
       className="mt-6 border-t border-neutral-800 pt-6"
     >
       <h2 className="text-xs font-semibold tracking-[0.28em] text-neutral-400 uppercase">
-        Totals
+        <button
+          type="button"
+          aria-expanded={isTotalsOpen}
+          aria-controls="totals-panel"
+          onClick={() => setIsTotalsOpen((open) => !open)}
+          className="flex items-center gap-2 uppercase hover:text-neutral-200"
+        >
+          <span
+            aria-hidden="true"
+            className={`inline-block transition-transform ${isTotalsOpen ? "rotate-90" : ""}`}
+          >
+            ▸
+          </span>
+          Totals
+        </button>
       </h2>
 
-      <div className="mt-4 grid gap-4 rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
-        <h3 className="text-sm font-semibold text-neutral-200">Selected day</h3>
-        <ul aria-label="Selected day totals" className="grid gap-2">
-          {props.labels.map((label) => (
-            <li
-              key={label.id}
-              className="flex items-center justify-between gap-3 text-sm text-neutral-200"
+      {isTotalsOpen ? (
+        <div id="totals-panel">
+          <div className="px-8 mt-4 grid gap-4 rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
+            <h3 className="text-sm font-semibold text-neutral-200">Selected day</h3>
+            <div className="grid items-center gap-6 sm:grid-cols-[auto_1fr]">
+              <div className="flex justify-center pl-6 pr-8">
+                <div
+                  role="img"
+                  aria-label="Selected day pie chart"
+                  className="h-86 w-86 shrink-0 rounded-full border border-neutral-700 bg-neutral-950 shadow-inner"
+                  style={{ backgroundImage: pieBackground }}
+                />
+              </div>
+              <ul aria-label="Selected day totals" className="grid gap-2">
+                {sortedLabels.map((label) => {
+                  const isActive = label.id === runningLabelId;
+
+                  return (
+                    <li
+                      key={label.id}
+                      data-active={isActive ? "true" : undefined}
+                      className={`flex items-center justify-between gap-3 py-1.5 text-sm ${isActive
+                        ? "rounded-lg border border-neutral-700 bg-neutral-800/80 px-3 font-medium text-neutral-50"
+                        : "text-neutral-200 px-3"
+                        }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <span
+                          aria-hidden="true"
+                          className="h-3 w-3 rounded-full"
+                          style={{
+                            backgroundColor: getLabelColour(label.colourId).value,
+                          }}
+                        />
+                        <span>{label.name}: </span>
+                      </span>
+                      <span className="font-mono tabular-nums">
+                        {formatClock(totals.get(label.id) ?? 0)}
+                      </span>
+                    </li>
+                  );
+                })}
+                <li className="px-3 flex items-center justify-between gap-3 border-t border-neutral-800 pt-3 text-sm text-neutral-400">
+                  <span className="flex items-center gap-2">
+                    <span
+                      aria-hidden="true"
+                      className="h-3 w-3 rounded-full border border-dashed border-neutral-500"
+                    />
+                    <span>Unaccounted: </span>
+                  </span>
+                  <span className="font-mono tabular-nums">
+                    {formatClock(unaccounted)}
+                  </span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
+            <h3 className="text-sm font-semibold text-neutral-200">Timeline</h3>
+            <ul
+              aria-label="Timeline"
+              className="relative h-10 w-full overflow-hidden rounded-lg border border-neutral-700 bg-neutral-950"
             >
-              <span className="flex items-center gap-2">
-                <span
-                  aria-hidden="true"
-                  className="h-3 w-3 rounded-full"
+              {segments.map((segment) => {
+                const label = segment.labelId
+                  ? props.labels.find(
+                    (candidate) => candidate.id === segment.labelId,
+                  )
+                  : undefined;
+                const left = ((segment.start - props.dayStart) / DAY_MS) * 100;
+                const width = ((segment.end - segment.start) / DAY_MS) * 100;
+
+                return (
+                  <li
+                    key={`${segment.labelId}-${segment.start}`}
+                    data-label={segment.labelId ?? undefined}
+                    className="absolute top-0 h-full"
+                    style={{
+                      left: `${left}%`,
+                      width: `${width}%`,
+                      backgroundColor: label
+                        ? getLabelColour(label.colourId).value
+                        : undefined,
+                    }}
+                  />
+                );
+              })}
+              {future ? (
+                <li
+                  data-future="true"
+                  className="absolute top-0 h-full"
                   style={{
-                    backgroundColor: getLabelColour(label.colourId).value,
+                    left: `${((futureStart - props.dayStart) / DAY_MS) * 100}%`,
+                    width: `${((props.dayEnd - futureStart) / DAY_MS) * 100}%`,
+                    backgroundImage:
+                      "repeating-linear-gradient(135deg, #404040 0 2px, transparent 2px 8px)",
+                    opacity: 0.6,
                   }}
                 />
-                <span>{label.name}: </span>
-              </span>
-              <span className="font-mono tabular-nums">
-                {formatClock(totals.get(label.id) ?? 0)}
-              </span>
-            </li>
-          ))}
-          <li className="flex items-center justify-between gap-3 border-t border-neutral-800 pt-2 text-sm text-neutral-400">
-            <span className="flex items-center gap-2">
-              <span
-                aria-hidden="true"
-                className="h-3 w-3 rounded-full border border-dashed border-neutral-500"
-              />
-              <span>Unaccounted: </span>
-            </span>
-            <span className="font-mono tabular-nums">
-              {formatClock(unaccounted)}
-            </span>
-          </li>
-        </ul>
-      </div>
-
-      <div className="mt-4 grid gap-3 rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
-        <h3 className="text-sm font-semibold text-neutral-200">Timeline</h3>
-        <ul
-          aria-label="Timeline"
-          className="relative h-10 w-full overflow-hidden rounded-lg border border-neutral-700 bg-neutral-950"
-        >
-          {segments.map((segment) => {
-            const label = segment.labelId
-              ? props.labels.find(
-                  (candidate) => candidate.id === segment.labelId,
-                )
-              : undefined;
-            const left = ((segment.start - props.dayStart) / DAY_MS) * 100;
-            const width = ((segment.end - segment.start) / DAY_MS) * 100;
-
-            return (
-              <li
-                key={`${segment.labelId}-${segment.start}`}
-                data-label={segment.labelId ?? undefined}
-                className="absolute top-0 h-full"
-                style={{
-                  left: `${left}%`,
-                  width: `${width}%`,
-                  backgroundColor: label
-                    ? getLabelColour(label.colourId).value
-                    : undefined,
-                }}
-              />
-            );
-          })}
-          {future ? (
-            <li
-              data-future="true"
-              className="absolute top-0 h-full"
-              style={{
-                left: `${((futureStart - props.dayStart) / DAY_MS) * 100}%`,
-                width: `${((props.dayEnd - futureStart) / DAY_MS) * 100}%`,
-                backgroundImage:
-                  "repeating-linear-gradient(135deg, #404040 0 2px, transparent 2px 8px)",
-                opacity: 0.6,
-              }}
-            />
-          ) : null}
-        </ul>
-        <div
-          aria-hidden="true"
-          className="flex justify-between font-mono text-xs text-neutral-500"
-        >
-          {[0, 6, 12, 18, 24].map((hour) => (
-            <span key={hour}>{String(hour).padStart(2, "0")}</span>
-          ))}
-        </div>
-      </div>
-
-      <div className="mt-4 grid gap-3 rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
-        <h3 className="text-sm font-semibold text-neutral-200">
-          Seven day totals
-        </h3>
-        <ul aria-label="Seven day totals" className="grid gap-3">
-          {seven.map((day) => (
-            <li
-              key={day.dayIndex}
-              className="grid gap-1 border-b border-neutral-800 pb-3 text-sm last:border-b-0 last:pb-0"
+              ) : null}
+            </ul>
+            <div
+              aria-hidden="true"
+              className="flex justify-between font-mono text-xs text-neutral-500"
             >
-              <span className="text-xs font-semibold text-neutral-400 uppercase">
-                Day {day.dayIndex}
-              </span>
-              <span className="flex flex-wrap gap-x-4 gap-y-1 text-neutral-200">
-                {Array.from(day.totals.entries()).map(([labelId, ms]) => (
-                  <span key={labelId}>
-                    {labelName(labelId)}:{" "}
-                    <span className="font-mono tabular-nums">
-                      {formatClock(ms)}
+              {[0, 6, 12, 18, 24].map((hour) => (
+                <span key={hour}>{String(hour).padStart(2, "0")}</span>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
+            <h3 className="text-sm font-semibold text-neutral-200">
+              Seven day totals
+            </h3>
+            <ul aria-label="Seven day totals" className="grid gap-3">
+              {seven.map((day) => (
+                <li
+                  key={day.dayIndex}
+                  className="grid gap-1 border-b border-neutral-800 pb-3 text-sm last:border-b-0 last:pb-0"
+                >
+                  <span className="text-xs font-semibold text-neutral-400 uppercase">
+                    Day {day.dayIndex}
+                  </span>
+                  <span className="flex flex-wrap gap-x-4 gap-y-1 text-neutral-200">
+                    {Array.from(day.totals.entries()).map(([labelId, ms]) => (
+                      <span key={labelId}>
+                        {labelName(labelId)}:{" "}
+                        <span className="font-mono tabular-nums">
+                          {formatClock(ms)}
+                        </span>
+                      </span>
+                    ))}
+                    <span className="text-neutral-400">
+                      Unaccounted:{" "}
+                      <span className="font-mono tabular-nums">
+                        {formatClock(day.unaccounted)}
+                      </span>
                     </span>
                   </span>
-                ))}
-                <span className="text-neutral-400">
-                  Unaccounted:{" "}
-                  <span className="font-mono tabular-nums">
-                    {formatClock(day.unaccounted)}
-                  </span>
-                </span>
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
