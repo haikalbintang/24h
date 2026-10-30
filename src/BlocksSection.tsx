@@ -179,6 +179,8 @@ export default function BlocksSection({
   const [manualError, setManualError] = useState<string | null>(null);
   const [labelId, setLabelId] = useState<LabelId>("");
   const [error, setError] = useState<string | null>(null);
+  const [startText, setStartText] = useState("");
+  const [endText, setEndText] = useState("");
   const [isManualOpen, setIsManualOpen] = useState(false);
   const [isBlocksOpen, setIsBlocksOpen] = useState(true);
 
@@ -190,6 +192,8 @@ export default function BlocksSection({
 
   const startEditing = (block: Block) => {
     setEditingId(block.id);
+    setStartText(formatClock(block.start - dayStart));
+    setEndText(block.end === null ? "" : formatClock(block.end - dayStart));
     setLabelId(block.labelId);
     setError(null);
   };
@@ -255,10 +259,17 @@ export default function BlocksSection({
   const saveBlock = (event: React.FormEvent<HTMLFormElement>, block: Block) => {
     event.preventDefault();
 
-    // Preserve exact existing start and end timestamps
+    const startOffset = parseClock(startText);
+    const endOffset = block.end === null ? null : parseClock(endText);
+
+    if (startOffset === null || (block.end !== null && endOffset === null)) {
+      setError("Enter times as HH:MM:SS.");
+      return;
+    }
+
     const result = onEditBlock(block.id, {
-      start: block.start,
-      end: block.end,
+      start: dayStart + startOffset,
+      end: endOffset === null ? null : dayStart + endOffset,
       labelId,
     });
 
@@ -306,6 +317,15 @@ export default function BlocksSection({
       </h2>
       {isBlocksOpen ? (
         <div id="blocks-panel" className="grid gap-3">
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setIsManualOpen(true)}
+              className="rounded-lg border border-neutral-700 px-4 py-1.5 text-sm text-neutral-200 hover:border-neutral-500"
+            >
+              Add Block
+            </button>
+          </div>
           {todaysBlocks.length === 0 ? (
             <p className="text-sm text-neutral-400">No blocks yet.</p>
           ) : (
@@ -367,7 +387,7 @@ export default function BlocksSection({
                       <BlockMenu
                         items={[
                           {
-                            label: "Edit label",
+                            label: "Edit",
                             icon: <PencilIcon />,
                             onSelect: () => startEditing(block),
                           },
@@ -432,11 +452,37 @@ export default function BlocksSection({
                     ) : null}
                     {editingId === block.id ? (
                       <form
-                        aria-label="Edit block label"
+                        aria-label="Edit block"
                         onSubmit={(event) => saveBlock(event, block)}
                         className="grid w-full gap-3 pt-2"
                       >
                         <div className="flex flex-wrap gap-3">
+                          <label className="grid gap-1 text-xs text-neutral-400">
+                            Start
+                            <input
+                              value={startText}
+                              aria-invalid={error !== null}
+                              onChange={(event) => {
+                                setStartText(event.target.value);
+                                setError(null);
+                              }}
+                              className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 font-mono text-sm text-neutral-100"
+                            />
+                          </label>
+                          {block.end === null ? null : (
+                            <label className="grid gap-1 text-xs text-neutral-400">
+                              End
+                              <input
+                                value={endText}
+                                aria-invalid={error !== null}
+                                onChange={(event) => {
+                                  setEndText(event.target.value);
+                                  setError(null);
+                                }}
+                                className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 font-mono text-sm text-neutral-100"
+                              />
+                            </label>
+                          )}
                           <label className="grid gap-1 text-xs text-neutral-400">
                             Label
                             <select
@@ -462,7 +508,7 @@ export default function BlocksSection({
                             type="submit"
                             className="rounded-lg bg-neutral-100 px-4 py-1.5 text-sm font-semibold text-neutral-950 hover:bg-white"
                           >
-                            Save
+                            Save block
                           </button>
                           <button
                             type="button"

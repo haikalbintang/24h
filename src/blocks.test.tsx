@@ -24,6 +24,9 @@ async function createLabel(
   name: string,
   colour = "Blue",
 ) {
+  // The create-label form lives behind the "New label" toggle.
+  await user.click(screen.getByRole("button", { name: "New label" }));
+
   const form = screen.getByRole("form", { name: "Create label" });
 
   await user.type(
@@ -132,6 +135,9 @@ describe("Blocks", () => {
     await createLabel(user, "Work", "Blue");
     await user.click(screen.getByRole("button", { name: "Work" }));
 
+    // The label manager lives behind a collapsible panel.
+    await user.click(screen.getByRole("button", { name: "Manage labels" }));
+
     await user.click(screen.getByRole("button", { name: "Edit Work" }));
 
     const form = screen.getByRole("form", { name: "Edit Work" });
@@ -204,14 +210,15 @@ describe("Blocks", () => {
     await user.keyboard("1");
 
     expect(blockItems()).toHaveLength(1);
-    expect(blockItems()[0]).toHaveTextContent("Work");
+    expect(blockItems()[0]).toHaveTextContent("Rest");
+    expect(blockItems()[0]).toHaveTextContent("00:30:00");
     expect(blockItems()[0]).toHaveTextContent("00:00:05");
     expect(blockItems()[0]).toHaveTextContent(/ongoing/i);
 
     await user.keyboard("2");
 
     expect(blockItems()).toHaveLength(2);
-    expect(blockItems()[1]).toHaveTextContent("Rest");
+    expect(blockItems()[1]).toHaveTextContent("Work");
     expect(blockItems()[1]).toHaveTextContent("00:30:05");
     expect(blockItems()[1]).toHaveTextContent(/ongoing/i);
   });
@@ -238,7 +245,10 @@ async function editBlock(
   fields: { start?: string; end?: string; label?: string },
 ) {
   await user.click(
-    within(blockItems()[index]).getByRole("button", { name: "Edit block" }),
+    within(blockItems()[index]).getByRole("button", { name: "Block actions" }),
+  );
+  await user.click(
+    within(screen.getByRole("menu", { name: "Block actions" })).getByRole("menuitem", { name: "Edit" }),
   );
 
   const form = screen.getByRole("form", { name: "Edit block" });
@@ -341,11 +351,14 @@ describe("Block editing validation, reassign, delete, undo", () => {
     act(() => runtime.clock.advance(10 * MINUTE_MS));
 
     expect(
-      within(blockItems()[0]).queryByRole("button", { name: "Delete block" }),
+      within(blockItems()[0]).queryByRole("menuitem", { name: "Delete" }),
     ).toBeNull();
 
     await user.click(
-      within(blockItems()[0]).getByRole("button", { name: "Edit block" }),
+      within(blockItems()[0]).getByRole("button", { name: "Block actions" }),
+    );
+    await user.click(
+      within(screen.getByRole("menu", { name: "Block actions" })).getByRole("menuitem", { name: "Edit" }),
     );
 
     expect(screen.queryByRole("textbox", { name: "End" })).toBeNull();
@@ -363,7 +376,10 @@ describe("Block editing validation, reassign, delete, undo", () => {
     const { user } = await setupTwoBlocks();
 
     await user.click(
-      within(blockItems()[1]).getByRole("button", { name: "Delete block" }),
+      within(blockItems()[1]).getByRole("button", { name: "Block actions" }),
+    );
+    await user.click(
+      within(screen.getByRole("menu", { name: "Block actions" })).getByRole("menuitem", { name: "Delete" }),
     );
 
     expect(blockItems()).toHaveLength(1);
@@ -379,7 +395,10 @@ describe("Block editing validation, reassign, delete, undo", () => {
     const { runtime, user } = await setupTwoBlocks();
 
     await user.click(
-      within(blockItems()[1]).getByRole("button", { name: "Delete block" }),
+      within(blockItems()[1]).getByRole("button", { name: "Block actions" }),
+    );
+    await user.click(
+      within(screen.getByRole("menu", { name: "Block actions" })).getByRole("menuitem", { name: "Delete" }),
     );
     act(() => runtime.clock.advance(6 * SECOND_MS));
 
@@ -391,7 +410,10 @@ describe("Block editing validation, reassign, delete, undo", () => {
     const { user } = await setupTwoBlocks();
 
     await user.click(
-      within(blockItems()[1]).getByRole("button", { name: "Delete block" }),
+      within(blockItems()[1]).getByRole("button", { name: "Block actions" }),
+    );
+    await user.click(
+      within(screen.getByRole("menu", { name: "Block actions" })).getByRole("menuitem", { name: "Delete" }),
     );
     await editBlock(user, 0, { end: "00:50:00" });
     await user.click(screen.getByRole("button", { name: "Undo" }));
@@ -424,6 +446,8 @@ describe("Manual Blocks and splitting", () => {
     user: ReturnType<typeof userEvent.setup>,
     fields: { start: string; end: string; label?: string },
   ) {
+    await user.click(screen.getByRole("button", { name: "Add Block" }));
+
     const form = screen.getByRole("form", { name: "Add manual block" });
 
     await user.type(within(form).getByRole("textbox", { name: "New start" }), fields.start);
@@ -445,7 +469,10 @@ describe("Manual Blocks and splitting", () => {
     time: string,
   ) {
     await user.click(
-      within(blockItems()[index]).getByRole("button", { name: "Split block" }),
+      within(blockItems()[index]).getByRole("button", { name: "Block actions" }),
+    );
+    await user.click(
+      within(screen.getByRole("menu", { name: "Block actions" })).getByRole("menuitem", { name: "Split" }),
     );
 
     const form = screen.getByRole("form", { name: "Split block" });
@@ -477,7 +504,9 @@ describe("Manual Blocks and splitting", () => {
   });
 
   it("only offers labels that exist when adding a manual Block", async () => {
-    await setupTwoBlocks();
+    const { user } = await setupTwoBlocks();
+
+    await user.click(screen.getByRole("button", { name: "Add Block" }));
 
     const form = screen.getByRole("form", { name: "Add manual block" });
     const options = within(

@@ -201,18 +201,18 @@ export default function LabelsSection({
             Labels
           </button>
         </h2>
-        {/* <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <p
             role="status"
             aria-label="Active label"
             aria-describedby={activeLabel ? "active-label-colour" : undefined}
-            className="flex items-center gap-2 text-sm font-medium text-neutral-200"
+            className="flex items-center gap-2 text-lg font-medium text-neutral-100"
           >
             {activeLabel ? (
               <>
                 <span
                   aria-hidden="true"
-                  className="h-3 w-3 rounded-full"
+                  className="h-4 w-4 rounded-full"
                   style={{
                     backgroundColor: getLabelColour(activeLabel.colourId).value,
                   }}
@@ -228,7 +228,7 @@ export default function LabelsSection({
               {getLabelColour(activeLabel.colourId).name}
             </span>
           ) : null}
-        </div> */}
+        </div>
       </div>
 
       {isLabelsOpen ? (

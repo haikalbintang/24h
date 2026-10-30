@@ -116,9 +116,9 @@ export function getBlockEditError(
     return "A Block must stay within the selected Day.";
   }
 
-  // if (overlapsAnother(blocks, id, edit.start, effectiveEnd, now)) {
-  //   return "A Block cannot overlap another Block.";
-  // }
+  if (overlapsAnother(blocks, id, edit.start, effectiveEnd, now)) {
+    return "A Block cannot overlap another Block.";
+  }
 
   return null;
 }

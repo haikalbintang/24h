@@ -22,6 +22,9 @@ async function createLabel(
   name: string,
   colour = 'Blue',
 ) {
+  // The create-label form lives behind the "New label" toggle.
+  await user.click(screen.getByRole('button', { name: 'New label' }))
+
   const form = createForm()
 
   await user.type(
@@ -40,9 +43,11 @@ describe('Labels', () => {
       screen.getByRole('status', { name: 'Active label' }),
     ).toHaveTextContent('Unlabeled')
     expect(screen.getByText('No labels yet.')).toBeInTheDocument()
+    const list = screen.getByRole('list', { name: 'Labels' })
+    expect(within(list).getAllByRole('listitem')).toHaveLength(1)
     expect(
-      screen.queryByRole('list', { name: 'Labels' }),
-    ).not.toBeInTheDocument()
+      within(list).getByRole('button', { name: 'New label' }),
+    ).toBeInTheDocument()
   })
 
   it('creates labels with a name and colour and lists them in creation order', async () => {
@@ -54,11 +59,14 @@ describe('Labels', () => {
     const list = screen.getByRole('list', { name: 'Labels' })
     const items = within(list).getAllByRole('listitem')
 
-    expect(items).toHaveLength(2)
-    expect(within(items[0]).getByRole('button', { name: 'Work' }))
-      .toHaveAccessibleDescription('Blue')
-    expect(within(items[1]).getByRole('button', { name: 'Rest' }))
+    expect(items).toHaveLength(3)
+    expect(within(items[0]).getByRole('button', { name: 'Rest' }))
       .toHaveAccessibleDescription('Green')
+    expect(within(items[1]).getByRole('button', { name: 'Work' }))
+      .toHaveAccessibleDescription('Blue')
+    expect(
+      within(items[2]).getByRole('button', { name: 'New label' }),
+    ).toBeInTheDocument()
     expect(
       screen.getByRole('status', { name: 'Active label' }),
     ).toHaveTextContent('Unlabeled')
@@ -100,25 +108,28 @@ describe('Labels', () => {
 
     const activeLabel = screen.getByRole('status', { name: 'Active label' })
 
+    // Labels are sorted by name, so the number keys map to sorted positions.
     await user.keyboard('2')
     expect(activeLabel).toHaveTextContent('Rest')
 
     await user.keyboard('3')
-    expect(activeLabel).toHaveTextContent('Play')
-
-    await user.keyboard('9')
-    expect(activeLabel).toHaveTextContent('Play')
-
-    await user.keyboard('1')
     expect(activeLabel).toHaveTextContent('Work')
 
+    await user.keyboard('9')
+    expect(activeLabel).toHaveTextContent('Work')
+
+    await user.keyboard('1')
+    expect(activeLabel).toHaveTextContent('Play')
+
+    // The create form is closed again after each create; reopen it for the typing check.
+    await user.click(screen.getByRole('button', { name: 'New label' }))
     const nameInput = within(createForm()).getByRole('textbox', {
       name: 'New label name',
     })
     await user.click(nameInput)
     await user.type(nameInput, '2')
 
-    expect(activeLabel).toHaveTextContent('Work')
+    expect(activeLabel).toHaveTextContent('Play')
   })
 
   it('trims label names before creating them', async () => {
@@ -140,9 +151,7 @@ describe('Labels', () => {
     await createLabel(user, '   ')
 
     expect(screen.getByRole('alert')).toHaveTextContent('Enter a label name.')
-    expect(
-      screen.queryByRole('list', { name: 'Labels' }),
-    ).not.toBeInTheDocument()
+    expect(screen.getByText('No labels yet.')).toBeInTheDocument()
   })
 
   it('rejects a duplicate label name regardless of case and spacing', async () => {
@@ -158,7 +167,7 @@ describe('Labels', () => {
       within(screen.getByRole('list', { name: 'Labels' })).getAllByRole(
         'button',
       ),
-    ).toHaveLength(1)
+    ).toHaveLength(2)
   })
 
   it('renames a label while keeping it active and in place', async () => {
@@ -168,6 +177,7 @@ describe('Labels', () => {
     await createLabel(user, 'Rest', 'Green')
     await user.click(screen.getByRole('button', { name: 'Work' }))
 
+    await user.click(screen.getByRole('button', { name: 'Manage labels' }))
     await user.click(screen.getByRole('button', { name: 'Edit Work' }))
 
     const form = screen.getByRole('form', { name: 'Edit Work' })
@@ -202,6 +212,7 @@ describe('Labels', () => {
 
     await createLabel(user, 'Work', 'Blue')
     await user.click(screen.getByRole('button', { name: 'Work' }))
+    await user.click(screen.getByRole('button', { name: 'Manage labels' }))
     await user.click(screen.getByRole('button', { name: 'Edit Work' }))
 
     const form = screen.getByRole('form', { name: 'Edit Work' })
@@ -224,6 +235,7 @@ describe('Labels', () => {
 
     await createLabel(user, 'Work')
     await createLabel(user, 'Rest')
+    await user.click(screen.getByRole('button', { name: 'Manage labels' }))
     await user.click(screen.getByRole('button', { name: 'Edit Work' }))
 
     const form = screen.getByRole('form', { name: 'Edit Work' })

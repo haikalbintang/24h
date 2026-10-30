@@ -26,6 +26,9 @@ async function createLabel(
   name: string,
   colour = "Blue"
 ) {
+  // The create-label form lives behind the "New label" toggle.
+  await user.click(screen.getByRole("button", { name: "New label" }))
+
   const form = screen.getByRole("form", { name: "Create label" });
 
   await user.type(
