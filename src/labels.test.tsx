@@ -1,8 +1,10 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import App from './App'
 import { createTestRuntime } from './test/runtime'
+
+const SECOND_MS = 1000
 
 const NOW = new Date('2026-03-08T12:00:00.000Z').getTime()
 
@@ -34,6 +36,11 @@ async function createLabel(
   await user.click(within(form).getByRole('radio', { name: colour }))
   await user.click(within(form).getByRole('button', { name: 'Create label' }))
 }
+
+const status = () => screen.getByRole('status', { name: 'Active label' })
+const blocksList = () => screen.getByRole('list', { name: 'Blocks' })
+const blockItems = () => within(blocksList()).getAllByRole('listitem')
+const dayTotals = () => screen.getByRole('list', { name: 'Selected day totals' })
 
 describe('Labels', () => {
   it('starts Unlabeled with no labels on first launch', () => {
@@ -263,5 +270,103 @@ describe('Labels', () => {
       'A label with that name already exists.',
     )
     expect(screen.getByRole('button', { name: 'Work' })).toBeInTheDocument()
+  })
+})
+
+describe('Label archive, restore, and undo', () => {
+  it('hides an archived label from the picker while keeping its history and totals', async () => {
+    const { user } = setup()
+
+    await createLabel(user, 'Work')
+    await createLabel(user, 'Rest', 'Green')
+    await user.click(screen.getByRole('button', { name: 'Work' }))
+    await user.click(screen.getByRole('button', { name: 'Rest' }))
+
+    await user.click(screen.getByRole('button', { name: 'Manage labels' }))
+    await user.click(screen.getByRole('button', { name: 'Archive Work' }))
+
+    expect(
+      screen.queryByRole('button', { name: 'Work' }),
+    ).not.toBeInTheDocument()
+    expect(blockItems()).toHaveLength(2)
+    expect(blockItems()[0]).toHaveTextContent('Work')
+    expect(dayTotals()).toHaveTextContent('Work:')
+  })
+
+  it('restore makes an archived label selectable again', async () => {
+    const { user } = setup()
+
+    await createLabel(user, 'Work')
+
+    await user.click(screen.getByRole('button', { name: 'Manage labels' }))
+    await user.click(screen.getByRole('button', { name: 'Archive Work' }))
+    await user.click(screen.getByRole('button', { name: 'Restore Work' }))
+
+    expect(screen.getByRole('button', { name: 'Work' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Work' }))
+
+    expect(status()).toHaveTextContent('Work')
+  })
+
+  it('archives the active label and returns to Unlabeled', async () => {
+    const { user } = setup()
+
+    await createLabel(user, 'Work')
+    await user.click(screen.getByRole('button', { name: 'Work' }))
+
+    await user.click(screen.getByRole('button', { name: 'Manage labels' }))
+    await user.click(screen.getByRole('button', { name: 'Archive Work' }))
+
+    expect(status()).toHaveTextContent('Unlabeled')
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument()
+  })
+
+  it('undoes an archive within the undo window and reactivates the label', async () => {
+    const { user } = setup()
+
+    await createLabel(user, 'Work')
+    await user.click(screen.getByRole('button', { name: 'Work' }))
+
+    await user.click(screen.getByRole('button', { name: 'Manage labels' }))
+    await user.click(screen.getByRole('button', { name: 'Archive Work' }))
+    await user.click(screen.getByRole('button', { name: 'Undo' }))
+
+    expect(status()).toHaveTextContent('Work')
+    expect(screen.getByRole('button', { name: 'Work' })).toBeInTheDocument()
+  })
+
+  it('stops offering undo after the archive undo window closes', async () => {
+    const { runtime, user } = setup()
+
+    await createLabel(user, 'Work')
+    await user.click(screen.getByRole('button', { name: 'Work' }))
+
+    await user.click(screen.getByRole('button', { name: 'Manage labels' }))
+    await user.click(screen.getByRole('button', { name: 'Archive Work' }))
+
+    act(() => runtime.clock.advance(6 * SECOND_MS))
+
+    expect(
+      screen.queryByRole('button', { name: 'Undo' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('does not offer an archived label when adding a manual block', async () => {
+    const { user } = setup()
+
+    await createLabel(user, 'Work')
+    await createLabel(user, 'Rest', 'Green')
+    await user.click(screen.getByRole('button', { name: 'Work' }))
+
+    await user.click(screen.getByRole('button', { name: 'Manage labels' }))
+    await user.click(screen.getByRole('button', { name: 'Archive Work' }))
+
+    await user.click(screen.getByRole('button', { name: 'Add Block' }))
+
+    const form = screen.getByRole('form', { name: 'Add manual block' })
+    const options = within(form).getAllByRole('option')
+
+    expect(options.map((option) => option.textContent)).toEqual(['Rest'])
   })
 })

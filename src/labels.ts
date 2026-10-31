@@ -17,6 +17,11 @@ export interface Label {
   id: LabelId
   name: string
   colourId: LabelColourId
+  archived?: boolean
+}
+
+export function isLabelArchived(label: Label): boolean {
+  return label.archived ?? false
 }
 
 export function getLabelColour(colourId: LabelColourId) {

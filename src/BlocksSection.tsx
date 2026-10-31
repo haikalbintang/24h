@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { formatClock, parseClock } from "./day";
 import { getBlockDuration } from "./blocks";
 import type { Block } from "./blocks";
-import { getLabelColour } from "./labels";
+import { getLabelColour, isLabelArchived } from "./labels";
 import type { Label, LabelId } from "./labels";
 
 function Icon({ children }: { children: React.ReactNode }) {
@@ -185,6 +185,7 @@ export default function BlocksSection({
   const [isBlocksOpen, setIsBlocksOpen] = useState(true);
 
   const labelMap = new Map(labels.map((label) => [label.id, label]));
+  const pickableLabels = labels.filter((label) => !isLabelArchived(label));
 
   const todaysBlocks = blocks
     .filter((block) => block.start >= dayStart && block.start < dayEnd)
@@ -230,7 +231,7 @@ export default function BlocksSection({
 
     const startOffset = parseClock(manualStartText);
     const endOffset = parseClock(manualEndText);
-    const chosenLabelId = manualLabelId || (labels[0]?.id ?? "");
+    const chosenLabelId = manualLabelId || (pickableLabels[0]?.id ?? "");
 
     if (startOffset === null || endOffset === null) {
       setManualError("Enter times as HH:MM:SS.");
@@ -564,11 +565,11 @@ export default function BlocksSection({
                 <label className="grid gap-1 text-xs text-neutral-400">
                   Label
                   <select
-                    value={manualLabelId || (labels[0]?.id ?? "")}
+                    value={manualLabelId || (pickableLabels[0]?.id ?? "")}
                     onChange={(event) => setManualLabelId(event.target.value)}
                     className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 text-sm text-neutral-100"
                   >
-                    {labels.map((option) => (
+                    {pickableLabels.map((option) => (
                       <option key={option.id} value={option.id}>
                         {option.name}
                       </option>

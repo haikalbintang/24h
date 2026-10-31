@@ -17,7 +17,7 @@ import {
 import LabelsSection from "./LabelsSection";
 import TotalsSection from "./TotalsSection";
 import ReopenPrompt from "./ReopenPrompt";
-import { useBlocks } from "./useBlocks";
+import { useBlocks, UNDO_WINDOW_MS } from "./useBlocks";
 import type { Runtime } from "./runtime";
 
 export interface AppProps {
@@ -39,6 +39,11 @@ export default function App({ runtime }: AppProps) {
 
   // null follows today, so rollover advances the view; a chosen past Day stays.
   const [undoError, setUndoError] = useState<string | null>(null);
+  const [archivedUndo, setArchivedUndo] = useState<{
+    labelId: LabelId;
+    expiresAt: number;
+    wasActive: boolean;
+  } | null>(null);
   const [pickedDayIndex, setPickedDayIndex] = useState<number | null>(null);
   const selectedDay = getDaySnapshot(
     anchor,
@@ -72,7 +77,6 @@ export default function App({ runtime }: AppProps) {
     addManualBlock,
     splitBlock,
     deleteBlock,
-    deleteBlocksByLabel,
     deletedBlock,
     undoDelete,
   } = useBlocks(anchor, now, runtime.clock.now, {
@@ -83,6 +87,8 @@ export default function App({ runtime }: AppProps) {
   });
 
   const undoVisible = deletedBlock !== null && now < deletedBlock.expiresAt;
+  const archiveUndoVisible =
+    archivedUndo !== null && now < archivedUndo.expiresAt;
 
   const saveState = useCallback(
     (lastSeenValue: number | null) => {
@@ -129,7 +135,12 @@ export default function App({ runtime }: AppProps) {
       ...current,
       labels: [
         ...current.labels,
-        { id: `label-${nextLabelId.current++}`, name, colourId },
+        {
+          id: `label-${nextLabelId.current++}`,
+          name,
+          colourId,
+          archived: false,
+        },
       ],
     }));
 
@@ -157,12 +168,65 @@ export default function App({ runtime }: AppProps) {
     return null;
   };
 
-  const deleteLabel = (labelId: LabelId) => {
-    deleteBlocksByLabel(labelId);
+  const archiveLabel = (labelId: LabelId) => {
+    const wasActive = activeLabelId === labelId;
+
+    setArchivedUndo({
+      labelId,
+      expiresAt: now + UNDO_WINDOW_MS,
+      wasActive,
+    });
+
+    // Archiving the active label closes the current Block and returns to
+    // Unlabeled; past Blocks keep their identity either way.
+    if (wasActive) {
+      selectLabel(null);
+    }
+
     setPersisted((current) => ({
       ...current,
-      labels: current.labels.filter((label) => label.id !== labelId),
+      labels: current.labels.map((label) =>
+        label.id === labelId ? { ...label, archived: true } : label,
+      ),
     }));
+  };
+
+  const restoreLabel = (labelId: LabelId) => {
+    setArchivedUndo(null);
+    setPersisted((current) => ({
+      ...current,
+      labels: current.labels.map((label) =>
+        label.id === labelId ? { ...label, archived: false } : label,
+      ),
+    }));
+  };
+
+  const undoArchive = (): string | null => {
+    if (archivedUndo === null) {
+      return "Nothing to undo.";
+    }
+
+    const { labelId, expiresAt, wasActive } = archivedUndo;
+
+    if (now >= expiresAt) {
+      setArchivedUndo(null);
+      return "Nothing to undo.";
+    }
+
+    setArchivedUndo(null);
+    setPersisted((current) => ({
+      ...current,
+      labels: current.labels.map((label) =>
+        label.id === labelId ? { ...label, archived: false } : label,
+      ),
+    }));
+
+    // Undo restores the label and, if it was active, reactivates it.
+    if (wasActive) {
+      selectLabel(labelId);
+    }
+
+    return null;
   };
 
   return (
@@ -239,7 +303,8 @@ export default function App({ runtime }: AppProps) {
           onToggleLabel={toggleLabel}
           onCreateLabel={createLabel}
           onRenameLabel={renameLabel}
-          onDeleteLabel={deleteLabel}
+          onArchiveLabel={archiveLabel}
+          onRestoreLabel={restoreLabel}
         />
         <TotalsSection
           labels={persisted.labels}
@@ -252,13 +317,24 @@ export default function App({ runtime }: AppProps) {
         />
       </div>
 
-      {undoVisible || undoError ? (
+      {archiveUndoVisible || undoVisible || undoError ? (
         <div
           role="status"
           aria-label="Undo"
           className="fixed bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-3 rounded-lg border border-neutral-700 bg-neutral-900 px-4 py-2 text-sm"
         >
-          {undoVisible ? (
+          {archiveUndoVisible ? (
+            <>
+              <span>Label archived.</span>
+              <button
+                type="button"
+                onClick={() => setUndoError(undoArchive())}
+                className="font-semibold text-neutral-100 underline"
+              >
+                Undo
+              </button>
+            </>
+          ) : undoVisible ? (
             <>
               <span>Block deleted.</span>
               <button

@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import ColourRadioGroup from "./ColourRadioGroup";
-import { getLabelColour, LABEL_COLOURS } from "./labels";
+import { getLabelColour, isLabelArchived, LABEL_COLOURS } from "./labels";
 import type { Label, LabelColourId, LabelId } from "./labels";
 import BlocksSection from "./BlocksSection";
 import type { BlockEditRequest, ManualBlockRequest } from "./BlocksSection";
@@ -26,7 +26,8 @@ interface LabelsSectionProps {
     name: string,
     colourId: LabelColourId,
   ) => string | null;
-  onDeleteLabel: (labelId: LabelId) => void;
+  onArchiveLabel: (labelId: LabelId) => void;
+  onRestoreLabel: (labelId: LabelId) => void;
 }
 
 export default function LabelsSection({
@@ -45,7 +46,8 @@ export default function LabelsSection({
   onToggleLabel,
   onCreateLabel,
   onRenameLabel,
-  onDeleteLabel,
+  onArchiveLabel,
+  onRestoreLabel,
 }: LabelsSectionProps) {
   const [newLabelName, setNewLabelName] = useState("");
   const [newLabelColourId, setNewLabelColourId] = useState<LabelColourId>(
@@ -62,7 +64,16 @@ export default function LabelsSection({
   const [isManageOpen, setIsManageOpen] = useState(false);
   const [isLabelsOpen, setIsLabelsOpen] = useState(true);
 
-  const sortedLabels = [...labels].sort((a, b) =>
+  const sortedLabels = useMemo(
+    () =>
+      [...labels]
+        .filter((label) => !isLabelArchived(label))
+        .sort((a, b) =>
+          a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+        ),
+    [labels],
+  );
+  const managedLabels = [...labels].sort((a, b) =>
     a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
   );
   const activeLabel =
@@ -152,7 +163,7 @@ export default function LabelsSection({
         onSelectLabel(label.id);
       }
     },
-    [labels, onSelectLabel, shortcutsEnabled],
+    [sortedLabels, onSelectLabel, shortcutsEnabled],
   );
 
   useEffect(() => {
@@ -356,13 +367,13 @@ export default function LabelsSection({
 
             {isManageOpen ? (
               <div id="manage-labels-panel">
-                {labels.length === 0 ? (
+                {managedLabels.length === 0 ? (
                   <p className="text-sm text-neutral-400">
                     Create a label to manage it here.
                   </p>
                 ) : (
                   <ul aria-label="Label manager" className="grid gap-3">
-                    {sortedLabels.map((label) => {
+                    {managedLabels.map((label) => {
                       const colour = getLabelColour(label.colourId);
 
                       return (
@@ -449,11 +460,17 @@ export default function LabelsSection({
                                     if (editingLabelId === label.id) {
                                       cancelEditingLabel();
                                     }
-                                    onDeleteLabel(label.id);
+                                    if (isLabelArchived(label)) {
+                                      onRestoreLabel(label.id);
+                                    } else {
+                                      onArchiveLabel(label.id);
+                                    }
                                   }}
                                   className="rounded-lg border border-red-900/60 px-3 py-1.5 text-sm font-medium text-red-400 hover:border-red-700 hover:text-red-300"
                                 >
-                                  Delete {label.name}
+                                  {isLabelArchived(label)
+                                    ? `Restore ${label.name}`
+                                    : `Archive ${label.name}`}
                                 </button>
                               </div>
                             </div>
