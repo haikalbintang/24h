@@ -15,6 +15,7 @@ import {
   type PersistedState,
 } from "./persistence";
 import LabelsSection from "./LabelsSection";
+import { saveBlocksExport, saveJsonExport } from "./export";
 import TotalsSection from "./TotalsSection";
 import ReopenPrompt from "./ReopenPrompt";
 import { useBlocks, UNDO_WINDOW_MS } from "./useBlocks";
@@ -23,6 +24,9 @@ import type { Runtime } from "./runtime";
 export interface AppProps {
   runtime: Runtime;
 }
+
+const exportButtonClass =
+  "rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 transition-colors hover:border-neutral-500 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600";
 
 export default function App({ runtime }: AppProps) {
   const [persisted, setPersisted] = useState<PersistedState>(() =>
@@ -229,6 +233,20 @@ export default function App({ runtime }: AppProps) {
     return null;
   };
 
+  const exportJson = () => {
+    saveJsonExport(runtime, persisted);
+  };
+
+  const exportCsv = () => {
+    saveBlocksExport(
+      runtime,
+      persisted.blocks,
+      persisted.labels,
+      anchor,
+      now,
+    );
+  };
+
   return (
     <main
       className="min-h-screen bg-neutral-950 text-neutral-100"
@@ -242,21 +260,44 @@ export default function App({ runtime }: AppProps) {
           <h1 className="text-xs font-semibold tracking-[0.28em] text-neutral-500 uppercase">
             Day Labels
           </h1>
-          <select
-            aria-label="Day"
-            value={selectedDay.dayIndex}
-            onChange={(event) => {
-              const index = Number(event.target.value);
-              setPickedDayIndex(index === day.dayIndex ? null : index);
-            }}
-            className="rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 transition-colors hover:border-neutral-500 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
-          >
-            {dayOptions.map((option) => (
-              <option key={option.dayIndex} value={option.dayIndex}>
-                {option.dayLabel}
-              </option>
-            ))}
-          </select>
+          <div className="flex flex-wrap items-center gap-3">
+            <select
+              aria-label="Day"
+              value={selectedDay.dayIndex}
+              onChange={(event) => {
+                const index = Number(event.target.value);
+                setPickedDayIndex(index === day.dayIndex ? null : index);
+              }}
+              className="rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 transition-colors hover:border-neutral-500 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
+            >
+              {dayOptions.map((option) => (
+                <option key={option.dayIndex} value={option.dayIndex}>
+                  {option.dayLabel}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={exportJson}
+              className={exportButtonClass}
+            >
+              Export JSON
+            </button>
+            <button
+              type="button"
+              onClick={exportCsv}
+              className={exportButtonClass}
+            >
+              Export CSV
+            </button>
+          </div>
+          <p className="w-full text-xs text-neutral-500">
+            No import is available; an exported file cannot be restored here.
+          </p>
+          <p className="w-full text-xs text-neutral-500">
+            Clearing site data is permanent and cannot be undone; keep an export
+            as a backup.
+          </p>
         </header>
 
         <section className="flex flex-1 flex-col items-center justify-center py-16">
