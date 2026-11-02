@@ -248,6 +248,47 @@ describe('Heartbeat and reopen prompt', () => {
       expect(dayClock()).toHaveTextContent('03:30:00')
     })
 
+    it("closes the reopen prompt with the Escape key", async () => {
+      const storage = createFakeStorage();
+      const first = setup(at("2026-03-08T05:30:00.000Z"), storage);
+      const user = first.user
+
+      await createLabel(user, 'Work')
+      await user.click(screen.getByRole('button', { name: 'Work' }))
+      first.view.unmount()
+
+      const second = setup(at('2026-03-08T08:30:00.000Z'), storage)
+
+      expect(reopenDialog()).toBeInTheDocument()
+
+      await second.user.keyboard('{Escape}')
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(status()).toHaveTextContent('Work')
+    })
+
+    it('traps focus within the reopen prompt while cycling with the keyboard', async () => {
+      const storage = createFakeStorage();
+      const first = setup(at('2026-03-08T05:30:00.000Z'), storage)
+      const user = first.user
+
+      await createLabel(user, 'Work')
+      await user.click(screen.getByRole('button', { name: 'Work' }))
+      first.view.unmount()
+
+      const second = setup(at('2026-03-08T08:30:00.000Z'), storage)
+
+      expect(reopenDialog()).toBeInTheDocument()
+
+      await second.user.keyboard('{Tab}')
+
+      expect(keepLabelButton()).toHaveFocus()
+
+      await second.user.keyboard('{Tab}')
+
+      expect(endBlockButton()).toHaveFocus()
+    })
+
     it('focuses End Block and ends the Block on Enter, leaving the gap Unaccounted', async () => {
       const storage = createFakeStorage()
       const first = setup(at('2026-03-08T05:30:00.000Z'), storage)

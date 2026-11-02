@@ -1,4 +1,5 @@
 import { act, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { createFakeStorage, createTestRuntime } from "./test/runtime";
@@ -136,5 +137,47 @@ describe("Day clock", () => {
 
     expect(dayClock()).toHaveTextContent("06:30:00");
     expect(screen.getByText("Mar 9, 2026")).toBeInTheDocument();
+  });
+
+  it("does not announce the ticking clock every second", () => {
+    const runtime = createTestRuntime(at("2026-03-08T05:30:00.000Z"));
+
+    render(<App runtime={runtime} />);
+
+    expect(dayClock()).toHaveAttribute("aria-live", "off");
+  });
+});
+
+describe("Theme", () => {
+  it("switches to the light theme when the toggle is activated", async () => {
+    const runtime = createTestRuntime(at("2026-03-08T05:30:00.000Z"));
+    const user = userEvent.setup();
+
+    render(<App runtime={runtime} />);
+
+    expect(screen.getByRole("main")).toHaveAttribute("data-theme", "dark");
+
+    await user.click(screen.getByRole("button", { name: "Toggle theme" }));
+
+    expect(screen.getByRole("main")).toHaveAttribute("data-theme", "light");
+  });
+
+  it("persists the theme across a reload", async () => {
+    const storage = createFakeStorage();
+    const runtime = createTestRuntime(at("2026-03-08T05:30:00.000Z"), storage);
+    const user = userEvent.setup();
+    const view = render(<App runtime={runtime} />);
+
+    await user.click(screen.getByRole("button", { name: "Toggle theme" }));
+
+    expect(screen.getByRole("main")).toHaveAttribute("data-theme", "light");
+
+    view.unmount();
+
+    render(
+      <App runtime={createTestRuntime(at("2026-03-08T06:30:00.000Z"), storage)} />,
+    );
+
+    expect(screen.getByRole("main")).toHaveAttribute("data-theme", "light");
   });
 });

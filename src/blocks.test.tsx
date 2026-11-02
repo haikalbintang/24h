@@ -438,6 +438,30 @@ describe("Block editing validation, reassign, delete, undo", () => {
   });
 });
 
+describe("Block actions menu", () => {
+  it("moves keyboard focus through the menu actions with the arrow keys", async () => {
+    const { user } = await setupTwoBlocks();
+
+    const menuButton = within(blockItems()[0]).getByRole("button", {
+      name: "Block actions",
+    });
+    menuButton.focus();
+    await user.keyboard("{Enter}");
+
+    const menu = screen.getByRole("menu", { name: "Block actions" });
+
+    await user.keyboard("{ArrowDown}");
+    expect(
+      within(menu).getByRole("menuitem", { name: "Edit" }),
+    ).toHaveFocus();
+
+    await user.keyboard("{ArrowDown}");
+    expect(
+      within(menu).getByRole("menuitem", { name: "Split" }),
+    ).toHaveFocus();
+  });
+});
+
 describe("Manual Blocks and splitting", () => {
   const dayTotals = () =>
     screen.getByRole("list", { name: "Selected day totals" });

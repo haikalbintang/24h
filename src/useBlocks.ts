@@ -40,6 +40,7 @@ export interface UseBlocksResult {
   recordHeartbeat: () => number | null;
   endBlockAtLastSeen: () => void;
   keepLabelThroughGap: () => void;
+  dismissReopenPrompt: () => void;
   editBlock: (
     id: BlockId,
     edit: Omit<BlockEdit, "end">,
@@ -71,6 +72,7 @@ export function useBlocks(
     initialState.lastSeen,
   );
   const [deletedBlock, setDeletedBlock] = useState<DeletedBlock | null>(null);
+  const [reopenDismissed, setReopenDismissed] = useState(false);
   const nextBlockId = useRef(
     Math.max(
       0,
@@ -86,7 +88,7 @@ export function useBlocks(
 
   const hasOpenBlock = blocks.some((block) => block.end === null);
   const reopenPromptOpen =
-    hasOpenBlock && lastSeen !== null && isReopenGap(lastSeen, now);
+    hasOpenBlock && lastSeen !== null && !reopenDismissed && isReopenGap(lastSeen, now);
 
   useEffect(() => {
     if (!hasOpenBlock || lastSeen === null) {
@@ -179,6 +181,7 @@ export function useBlocks(
     );
     setActiveLabelId(null);
     setLastSeen(at);
+    setReopenDismissed(false);
   }, [anchor, getNow, lastSeen]);
 
   const keepLabelThroughGap = useCallback(() => {
@@ -186,7 +189,12 @@ export function useBlocks(
 
     setBlocks((current) => splitAtDayBoundaries(current, anchor, at));
     setLastSeen(at);
+    setReopenDismissed(false);
   }, [anchor, getNow]);
+
+  const dismissReopenPrompt = useCallback(() => {
+    setReopenDismissed(true);
+  }, []);
 
   const editBlock = useCallback(
     (
@@ -340,6 +348,7 @@ export function useBlocks(
     recordHeartbeat,
     endBlockAtLastSeen,
     keepLabelThroughGap,
+    dismissReopenPrompt,
     editBlock,
     addManualBlock,
     splitBlock: splitBlockAt,

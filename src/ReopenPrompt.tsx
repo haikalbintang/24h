@@ -5,16 +5,23 @@ interface ReopenPromptProps {
   labelName: string | null;
   onEnd: () => void;
   onKeep: () => void;
+  onDismiss?: () => void;
 }
 
 export default function ReopenPrompt({
   labelName,
   onEnd,
   onKeep,
+  onDismiss,
 }: ReopenPromptProps) {
   const dialogRef = useRef<HTMLDivElement | null>(null);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Escape") {
+      onDismiss?.();
+      return;
+    }
+
     if (event.key !== "Tab") {
       return;
     }
@@ -48,7 +55,7 @@ export default function ReopenPrompt({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/80 p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(0,0,0,0.8)] p-6"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
           event.preventDefault();
@@ -86,14 +93,14 @@ export default function ReopenPrompt({
             type="button"
             onClick={onEnd}
             autoFocus
-            className="rounded-lg bg-neutral-100 px-4 py-2 text-sm font-semibold text-neutral-950 hover:bg-white"
+            className="rounded-lg bg-neutral-100 px-4 py-2 text-sm font-semibold text-neutral-950 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
           >
             End Block
           </button>
           <button
             type="button"
             onClick={onKeep}
-            className="rounded-lg border border-neutral-700 px-4 py-2 text-sm font-semibold text-neutral-100 hover:border-neutral-500"
+            className="rounded-lg border border-neutral-700 px-4 py-2 text-sm font-semibold text-neutral-100 hover:border-neutral-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
           >
             Keep Label
           </button>

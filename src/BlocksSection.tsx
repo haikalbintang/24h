@@ -68,6 +68,7 @@ interface BlockMenuItem {
 function BlockMenu({ items }: { items: BlockMenuItem[] }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLUListElement | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -79,6 +80,32 @@ function BlockMenu({ items }: { items: BlockMenuItem[] }) {
     };
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
+      if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+
+      const menu = menuRef.current;
+      if (menu === null) return;
+
+      const menuItems = Array.from(
+        menu.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'),
+      ).filter((button) => !button.disabled);
+
+      if (menuItems.length === 0) return;
+
+      const currentIndex = menuItems.findIndex(
+        (button) => button === document.activeElement,
+      );
+      const step = event.key === "ArrowDown" ? 1 : -1;
+      let nextIndex = currentIndex + step;
+
+      if (currentIndex === -1) {
+        nextIndex = event.key === "ArrowDown" ? 0 : menuItems.length - 1;
+      } else if (nextIndex < 0) {
+        nextIndex = menuItems.length - 1;
+      } else if (nextIndex >= menuItems.length) {
+        nextIndex = 0;
+      }
+
+      menuItems[nextIndex]?.focus();
     };
 
     document.addEventListener("pointerdown", handlePointerDown);
@@ -98,12 +125,13 @@ function BlockMenu({ items }: { items: BlockMenuItem[] }) {
         aria-expanded={open}
         title="More actions"
         onClick={() => setOpen((value) => !value)}
-        className={`${iconButtonClass} hover:border-neutral-500`}
+        className={`${iconButtonClass} hover:border-neutral-500 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600`}
       >
         <KebabIcon />
       </button>
       {open ? (
         <ul
+          ref={menuRef}
           role="menu"
           aria-label="Block actions"
           className="absolute right-0 z-10 mt-1 min-w-36 rounded-lg border border-neutral-700 bg-neutral-900 p-1 shadow-lg"
@@ -117,7 +145,7 @@ function BlockMenu({ items }: { items: BlockMenuItem[] }) {
                   setOpen(false);
                   item.onSelect();
                 }}
-                className={`flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm hover:bg-neutral-800 ${item.danger ? "text-red-400" : "text-neutral-200"
+                className={`flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm hover:bg-neutral-800 focus:bg-neutral-800 focus:outline-none ${item.danger ? "text-red-400" : "text-neutral-200"
                   }`}
               >
                 {item.icon}
@@ -305,7 +333,7 @@ export default function BlocksSection({
           aria-expanded={isBlocksOpen}
           aria-controls="blocks-panel"
           onClick={() => setIsBlocksOpen((open) => !open)}
-          className="flex items-center gap-2 uppercase hover:text-neutral-200"
+          className="flex items-center gap-2 uppercase hover:text-neutral-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
         >
           <span
             aria-hidden="true"
@@ -322,7 +350,7 @@ export default function BlocksSection({
             <button
               type="button"
               onClick={() => setIsManualOpen(true)}
-              className="rounded-lg border border-neutral-700 px-4 py-1.5 text-sm text-neutral-200 hover:border-neutral-500"
+              className="rounded-lg border border-neutral-700 px-4 py-1.5 text-sm text-neutral-200 hover:border-neutral-500 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
             >
               Add Block
             </button>
@@ -426,7 +454,7 @@ export default function BlocksSection({
                               setSplitText(event.target.value);
                               setSplitError(null);
                             }}
-                            className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 font-mono text-sm text-neutral-100"
+                            className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 font-mono text-sm text-neutral-100 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
                           />
                         </label>
                         {splitError ? (
@@ -437,14 +465,14 @@ export default function BlocksSection({
                         <div className="flex gap-2">
                           <button
                             type="submit"
-                            className="rounded-lg bg-neutral-100 px-4 py-1.5 text-sm font-semibold text-neutral-950 hover:bg-white"
+                            className="rounded-lg bg-neutral-100 px-4 py-1.5 text-sm font-semibold text-neutral-950 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
                           >
                             Split
                           </button>
                           <button
                             type="button"
                             onClick={() => setSplittingId(null)}
-                            className="rounded-lg border border-neutral-700 px-4 py-1.5 text-sm text-neutral-200 hover:border-neutral-500"
+                            className="rounded-lg border border-neutral-700 px-4 py-1.5 text-sm text-neutral-200 hover:border-neutral-500 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
                           >
                             Cancel
                           </button>
@@ -467,7 +495,7 @@ export default function BlocksSection({
                                 setStartText(event.target.value);
                                 setError(null);
                               }}
-                              className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 font-mono text-sm text-neutral-100"
+                              className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 font-mono text-sm text-neutral-100 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
                             />
                           </label>
                           {block.end === null ? null : (
@@ -480,7 +508,7 @@ export default function BlocksSection({
                                   setEndText(event.target.value);
                                   setError(null);
                                 }}
-                                className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 font-mono text-sm text-neutral-100"
+                                className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 font-mono text-sm text-neutral-100 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
                               />
                             </label>
                           )}
@@ -507,14 +535,14 @@ export default function BlocksSection({
                         <div className="flex gap-2">
                           <button
                             type="submit"
-                            className="rounded-lg bg-neutral-100 px-4 py-1.5 text-sm font-semibold text-neutral-950 hover:bg-white"
+                            className="rounded-lg bg-neutral-100 px-4 py-1.5 text-sm font-semibold text-neutral-950 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
                           >
                             Save block
                           </button>
                           <button
                             type="button"
                             onClick={() => setEditingId(null)}
-                            className="rounded-lg border border-neutral-700 px-4 py-1.5 text-sm text-neutral-200 hover:border-neutral-500"
+                            className="rounded-lg border border-neutral-700 px-4 py-1.5 text-sm text-neutral-200 hover:border-neutral-500 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
                           >
                             Cancel
                           </button>
@@ -547,7 +575,7 @@ export default function BlocksSection({
                       setManualStartText(event.target.value);
                       setManualError(null);
                     }}
-                    className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 font-mono text-sm text-neutral-100"
+                    className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 font-mono text-sm text-neutral-100 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
                   />
                 </label>
                 <label className="grid gap-1 text-xs text-neutral-400">
@@ -559,7 +587,7 @@ export default function BlocksSection({
                       setManualEndText(event.target.value);
                       setManualError(null);
                     }}
-                    className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 font-mono text-sm text-neutral-100"
+                    className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 font-mono text-sm text-neutral-100 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
                   />
                 </label>
                 <label className="grid gap-1 text-xs text-neutral-400">
@@ -585,14 +613,14 @@ export default function BlocksSection({
               <div className="flex gap-2">
                 <button
                   type="submit"
-                  className="rounded-lg bg-neutral-100 px-4 py-1.5 text-sm font-semibold text-neutral-950 hover:bg-white"
+                  className="rounded-lg bg-neutral-100 px-4 py-1.5 text-sm font-semibold text-neutral-950 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
                 >
                   Add manual block
                 </button>
                 <button
                   type="button"
                   onClick={closeManual}
-                  className="rounded-lg border border-neutral-700 px-4 py-1.5 text-sm text-neutral-200 hover:border-neutral-500"
+                  className="rounded-lg border border-neutral-700 px-4 py-1.5 text-sm text-neutral-200 hover:border-neutral-500 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
                 >
                   Cancel
                 </button>

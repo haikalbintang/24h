@@ -201,7 +201,7 @@ export default function LabelsSection({
             aria-expanded={isLabelsOpen}
             aria-controls="labels-panel"
             onClick={() => setIsLabelsOpen((open) => !open)}
-            className="flex items-center gap-2 uppercase hover:text-neutral-200"
+            className="flex items-center gap-2 uppercase hover:text-neutral-200 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
           >
             <span
               aria-hidden="true"
@@ -259,7 +259,7 @@ export default function LabelsSection({
                     aria-pressed={activeLabelId === label.id}
                     aria-describedby={`label-${label.id}-colour`}
                     onClick={() => onToggleLabel(label.id)}
-                    className="flex items-center gap-2 rounded-full border border-neutral-700 bg-neutral-900 px-4 py-2 text-sm font-medium text-neutral-200 hover:border-neutral-500 aria-pressed:border-neutral-200 aria-pressed:bg-neutral-100 aria-pressed:text-neutral-950"
+                    className="flex items-center gap-2 rounded-full border border-neutral-700 bg-neutral-900 px-4 py-2 text-sm font-medium text-neutral-200 hover:border-neutral-500 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600 aria-pressed:border-neutral-200 aria-pressed:bg-neutral-100 aria-pressed:text-neutral-950"
                   >
                     <span
                       aria-hidden="true"
@@ -281,7 +281,7 @@ export default function LabelsSection({
                 aria-expanded={isCreateOpen}
                 aria-controls="create-label-form"
                 onClick={toggleCreateForm}
-                className="flex items-center gap-2 rounded-full border border-dashed border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-400 hover:border-neutral-500 hover:text-neutral-200 aria-expanded:border-neutral-200 aria-expanded:text-neutral-100"
+                className="flex items-center gap-2 rounded-full border border-dashed border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-400 hover:border-neutral-500 hover:text-neutral-200 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600 aria-expanded:border-neutral-200 aria-expanded:text-neutral-100"
               >
                 <span aria-hidden="true">{isCreateOpen ? "−" : "+"}</span>
                 New label
@@ -315,7 +315,7 @@ export default function LabelsSection({
                     setNewLabelName(event.target.value);
                     setCreateError(null);
                   }}
-                  className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-neutral-400"
+                  className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-neutral-400 focus-visible:ring-2 focus-visible:ring-neutral-600"
                 />
                 {createError ? (
                   <p role="alert" className="text-sm text-red-400">
@@ -331,14 +331,14 @@ export default function LabelsSection({
               <div className="flex flex-wrap gap-2">
                 <button
                   type="submit"
-                  className="rounded-lg bg-neutral-100 px-4 py-2 text-sm font-semibold text-neutral-950 hover:bg-white"
+                  className="rounded-lg bg-neutral-100 px-4 py-2 text-sm font-semibold text-neutral-950 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
                 >
                   Create label
                 </button>
                 <button
                   type="button"
                   onClick={toggleCreateForm}
-                  className="rounded-lg border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-200 hover:border-neutral-500"
+                  className="rounded-lg border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-200 hover:border-neutral-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
                 >
                   Cancel
                 </button>
@@ -402,7 +402,7 @@ export default function LabelsSection({
                                     setEditLabelName(event.target.value);
                                     setEditError(null);
                                   }}
-                                  className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-neutral-400"
+                                  className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-neutral-400 focus-visible:ring-2 focus-visible:ring-neutral-600"
                                 />
                                 {editError ? (
                                   <p role="alert" className="text-sm text-red-400">
@@ -418,14 +418,14 @@ export default function LabelsSection({
                               <div className="flex flex-wrap gap-2">
                                 <button
                                   type="submit"
-                                  className="rounded-lg bg-neutral-100 px-4 py-2 text-sm font-semibold text-neutral-950 hover:bg-white"
+                                  className="rounded-lg bg-neutral-100 px-4 py-2 text-sm font-semibold text-neutral-950 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
                                 >
                                   Save changes
                                 </button>
                                 <button
                                   type="button"
                                   onClick={cancelEditingLabel}
-                                  className="rounded-lg border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-200 hover:border-neutral-500"
+                                  className="rounded-lg border border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-200 hover:border-neutral-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
                                 >
                                   Cancel
                                 </button>
@@ -450,7 +450,7 @@ export default function LabelsSection({
                                 <button
                                   type="button"
                                   onClick={() => startEditingLabel(label)}
-                                  className="rounded-lg border border-neutral-700 px-3 py-1.5 text-sm font-medium text-neutral-200 hover:border-neutral-500"
+                                  className="rounded-lg border border-neutral-700 px-3 py-1.5 text-sm font-medium text-neutral-200 hover:border-neutral-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
                                 >
                                   Edit {label.name}
                                 </button>
@@ -466,7 +466,7 @@ export default function LabelsSection({
                                       onArchiveLabel(label.id);
                                     }
                                   }}
-                                  className="rounded-lg border border-red-900/60 px-3 py-1.5 text-sm font-medium text-red-400 hover:border-red-700 hover:text-red-300"
+                                  className="rounded-lg border border-red-900/60 px-3 py-1.5 text-sm font-medium text-red-400 hover:border-red-700 hover:text-red-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
                                 >
                                   {isLabelArchived(label)
                                     ? `Restore ${label.name}`

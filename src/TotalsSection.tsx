@@ -106,7 +106,7 @@ export default function TotalsSection(props: TotalsSectionProps) {
           aria-expanded={isTotalsOpen}
           aria-controls="totals-panel"
           onClick={() => setIsTotalsOpen((open) => !open)}
-          className="flex items-center gap-2 uppercase hover:text-neutral-200"
+          className="flex items-center gap-2 uppercase hover:text-neutral-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
         >
           <span
             aria-hidden="true"
