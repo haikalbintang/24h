@@ -120,18 +120,18 @@ export default function TotalsSection(props: TotalsSectionProps) {
 
       {isTotalsOpen ? (
         <div id="totals-panel">
-          <div className="px-8 mt-4 grid gap-4 rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
+          <div className="mt-4 grid gap-4 rounded-xl border border-neutral-800 bg-neutral-900/60 p-5 sm:px-8">
             <h3 className="text-sm font-semibold text-neutral-200">Selected day</h3>
             <div className="grid items-center gap-6 sm:grid-cols-[auto_1fr]">
-              <div className="flex justify-center pl-6 pr-8">
+              <div className="flex justify-center lg:pl-6 lg:pr-8">
                 <div
                   role="img"
                   aria-label="Selected day pie chart"
-                  className="h-86 w-86 shrink-0 rounded-full border border-neutral-700 bg-neutral-950 shadow-inner"
+                  className="aspect-square w-full max-w-64 shrink-0 rounded-full border border-neutral-700 bg-neutral-950 shadow-inner sm:h-56 sm:w-56 sm:max-w-none md:h-72 md:w-72 lg:h-86 lg:w-86"
                   style={{ backgroundImage: pieBackground }}
                 />
               </div>
-              <ul aria-label="Selected day totals" className="grid gap-2">
+              <ul aria-label="Selected day totals" className="grid min-w-0 gap-2">
                 {sortedLabels.map((label) => {
                   const isActive = label.id === runningLabelId;
 
@@ -144,31 +144,31 @@ export default function TotalsSection(props: TotalsSectionProps) {
                         : "text-neutral-200 px-3"
                         }`}
                     >
-                      <span className="flex items-center gap-2">
+                      <span className="flex min-w-0 items-center gap-2">
                         <span
                           aria-hidden="true"
-                          className="h-3 w-3 rounded-full"
+                          className="h-3 w-3 shrink-0 rounded-full"
                           style={{
                             backgroundColor: getLabelColour(label.colourId).value,
                           }}
                         />
-                        <span>{label.name}: </span>
+                        <span className="truncate">{label.name}: </span>
                       </span>
-                      <span className="font-mono tabular-nums">
+                      <span className="shrink-0 font-mono tabular-nums">
                         {formatClock(totals.get(label.id) ?? 0)}
                       </span>
                     </li>
                   );
                 })}
                 <li className="px-3 flex items-center justify-between gap-3 border-t border-neutral-800 pt-3 text-sm text-neutral-400">
-                  <span className="flex items-center gap-2">
+                  <span className="flex min-w-0 items-center gap-2">
                     <span
                       aria-hidden="true"
-                      className="h-3 w-3 rounded-full border border-dashed border-neutral-500"
+                      className="h-3 w-3 shrink-0 rounded-full border border-dashed border-neutral-500"
                     />
-                    <span>Unaccounted: </span>
+                    <span className="truncate">Unaccounted: </span>
                   </span>
-                  <span className="font-mono tabular-nums">
+                  <span className="shrink-0 font-mono tabular-nums">
                     {formatClock(unaccounted)}
                   </span>
                 </li>
