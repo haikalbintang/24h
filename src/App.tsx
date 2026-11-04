@@ -14,7 +14,9 @@ import {
   savePersistedState,
   STATE_SCHEMA_VERSION,
   type PersistedState,
+  type SharedState,
 } from "./persistence";
+import { SyncCoordinator } from "./sync";
 import LabelsSection from "./LabelsSection";
 import { saveBlocksExport, saveJsonExport } from "./export";
 import TotalsSection from "./TotalsSection";
@@ -130,12 +132,125 @@ export default function App({ runtime }: AppProps) {
     dismissReopenPrompt,
     relabelBlock,
     splitBlock,
+    adoptExternalState,
   } = useBlocks(anchor, now, runtime.clock.now, {
     blocks: persisted.shared.blocks,
     labels: persisted.shared.labels,
     activeLabelId: persisted.shared.activeLabelId,
     lastSeen: persisted.shared.heartbeat,
   });
+
+  const lastPollRef = useRef<number>(now);
+  const isSyncApplyingRef = useRef<boolean>(false);
+  const isFirstRender = useRef<boolean>(true);
+
+  const currentShared: SharedState = {
+    anchor: persisted.shared.anchor,
+    labels: persisted.shared.labels,
+    blocks,
+    activeLabelId: activeLabelId ?? UNACCOUNTED_LABEL_ID,
+    heartbeat: lastSeen,
+  };
+  const currentSharedRef = useRef<SharedState>(currentShared);
+  const session = persisted.device.session;
+  const sessionRef = useRef(session);
+
+  useEffect(() => {
+    currentSharedRef.current = currentShared;
+    sessionRef.current = session;
+  });
+
+  const applyMergedState = useCallback(
+    (merged: SharedState) => {
+      isSyncApplyingRef.current = true;
+      setPersisted((current) => ({
+        ...current,
+        shared: {
+          ...current.shared,
+          anchor: merged.anchor,
+          labels: merged.labels,
+        },
+      }));
+      adoptExternalState({
+        blocks: merged.blocks,
+        activeLabelId: merged.activeLabelId,
+        lastSeen: merged.heartbeat,
+      });
+      nextLabelId.current =
+        Math.max(
+          nextLabelId.current,
+          ...merged.labels.map(
+            (label) => Number(label.id.slice("label-".length)) || 0
+          )
+        ) + 1;
+      setTimeout(() => {
+        isSyncApplyingRef.current = false;
+      }, 0);
+    },
+    [adoptExternalState]
+  );
+
+  const [coordinator] = useState(
+    () =>
+      new SyncCoordinator({
+        sync: runtime.sync,
+        sharedRef: currentSharedRef,
+        sessionRef,
+        onRemoteMerged: (merged) => {
+          currentSharedRef.current = merged;
+          applyMergedState(merged);
+        },
+        debounceMs: 2000,
+      })
+  );
+
+  const markDirty = useCallback(() => {
+    if (!sessionRef.current || isSyncApplyingRef.current) {
+      return;
+    }
+    coordinator.notifyMutation(runtime.clock.now());
+  }, [coordinator, runtime]);
+
+  useEffect(() => {
+    if (!sessionRef.current) {
+      return;
+    }
+    coordinator.checkDebounce(now);
+    if (now - lastPollRef.current >= 10000) {
+      lastPollRef.current = now;
+      void (coordinator.isQueued() ? coordinator.flush() : coordinator.pull());
+    }
+  }, [coordinator, now]);
+
+  useEffect(() => {
+    const onTrigger = () => {
+      if (sessionRef.current) {
+        void (coordinator.isQueued() ? coordinator.flush() : coordinator.pull());
+      }
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        onTrigger();
+      }
+    };
+    window.addEventListener("focus", onTrigger);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("pagehide", onTrigger);
+
+    return () => {
+      window.removeEventListener("focus", onTrigger);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("pagehide", onTrigger);
+    };
+  }, [coordinator]);
+
+  useEffect(() => {
+    if (session) {
+      void coordinator.pull();
+    } else {
+      coordinator.destroy();
+    }
+  }, [coordinator, session]);
 
   const archiveUndoVisible =
     archivedUndo !== null && now < archivedUndo.expiresAt;
@@ -162,7 +277,12 @@ export default function App({ runtime }: AppProps) {
 
   useEffect(() => {
     saveState(lastSeen);
-  }, [saveState, lastSeen]);
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    markDirty();
+  }, [saveState, lastSeen, markDirty]);
 
   // Visibility changes and page hides freeze the interval, so persist the
   // heartbeat synchronously rather than waiting for the save effect.

@@ -1,5 +1,6 @@
 import type { Clock, ExportSink, Runtime, Storage } from '../runtime'
 import { createFakeAuthAdapter, type FakeAuthAdapter } from './auth'
+import { createFakeSyncAdapter, type FakeSyncAdapter } from './sync'
 
 export interface FakeClock extends Clock {
   setNow(now: number): void
@@ -76,17 +77,20 @@ export interface TestRuntime extends Runtime {
   storage: Storage
   exportSink: CapturingExportSink
   auth: FakeAuthAdapter
+  sync: FakeSyncAdapter
 }
 
 export function createTestRuntime(
   now: number,
   storage: Storage = createFakeStorage(),
   auth: FakeAuthAdapter = createFakeAuthAdapter(),
+  sync: FakeSyncAdapter = createFakeSyncAdapter(),
 ): TestRuntime {
   return {
     clock: createFakeClock(now),
     storage,
     exportSink: createCapturingExportSink(),
     auth,
+    sync,
   }
 }

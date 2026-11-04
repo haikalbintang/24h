@@ -37,6 +37,11 @@ export interface UseBlocksResult {
   relabelBlock: (id: BlockId, labelId: LabelId) => string | null;
   splitBlock: (id: BlockId, at: number) => string | null;
   deleteBlocksByLabel: (labelId: LabelId) => void;
+  adoptExternalState: (state: {
+    blocks?: Block[];
+    activeLabelId?: LabelId | null;
+    lastSeen?: number | null;
+  }) => void;
 }
 
 export function useBlocks(
@@ -246,6 +251,33 @@ export function useBlocks(
     [anchor, blocks, createBlockId, getNow],
   );
 
+  const adoptExternalState = useCallback(
+    (state: {
+      blocks?: Block[];
+      activeLabelId?: LabelId | null;
+      lastSeen?: number | null;
+    }) => {
+      if (state.blocks !== undefined) {
+        setBlocks(state.blocks);
+        nextBlockId.current =
+          Math.max(
+            nextBlockId.current,
+            ...state.blocks.map(
+              (block) =>
+                Number(block.id.slice("block-".length).split("-")[0]) || 0,
+            ),
+          ) + 1;
+      }
+      if (state.activeLabelId !== undefined) {
+        setActiveLabelId(state.activeLabelId ?? UNACCOUNTED_LABEL_ID);
+      }
+      if (state.lastSeen !== undefined) {
+        setLastSeen(state.lastSeen);
+      }
+    },
+    [],
+  );
+
   return {
     blocks,
     dynamicBlocks,
@@ -261,5 +293,6 @@ export function useBlocks(
     relabelBlock,
     splitBlock: splitBlockAt,
     deleteBlocksByLabel,
+    adoptExternalState,
   };
 }

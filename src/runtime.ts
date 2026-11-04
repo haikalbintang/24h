@@ -1,4 +1,5 @@
 import type { Auth } from './auth'
+import type { SyncAdapter } from './sync'
 
 export interface Clock {
   now(): number
@@ -20,6 +21,7 @@ export interface Runtime {
   storage: Storage
   exportSink: ExportSink
   auth: Auth
+  sync: SyncAdapter
 }
 
 export function createBrowserRuntime(): Runtime {
@@ -82,6 +84,10 @@ export function createBrowserRuntime(): Runtime {
       signInWithMagicLink: async () => ({ error: 'Auth not configured' }),
       signOut: async () => ({}),
       subscribe: () => () => {},
+    },
+    sync: {
+      pull: async () => ({ status: 'offline', error: 'Sync not configured' }),
+      push: async () => ({ status: 'offline', error: 'Sync not configured' }),
     },
   }
 }
