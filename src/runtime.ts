@@ -1,3 +1,5 @@
+import type { Auth } from './auth'
+
 export interface Clock {
   now(): number
   subscribe(listener: () => void): () => void
@@ -17,6 +19,7 @@ export interface Runtime {
   clock: Clock
   storage: Storage
   exportSink: ExportSink
+  auth: Auth
 }
 
 export function createBrowserRuntime(): Runtime {
@@ -72,6 +75,13 @@ export function createBrowserRuntime(): Runtime {
         anchor.click()
         window.setTimeout(() => URL.revokeObjectURL(url), 0)
       },
+    },
+    auth: {
+      isGoogleConfigured: false,
+      getSession: () => null,
+      signInWithMagicLink: async () => ({ error: 'Auth not configured' }),
+      signOut: async () => ({}),
+      subscribe: () => () => {},
     },
   }
 }

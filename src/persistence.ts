@@ -13,6 +13,7 @@ import type { Label, LabelColourId, LabelId } from './labels'
 import { localMidnightBefore } from './day'
 import type { Runtime } from './runtime'
 import { THEME_DARK, THEME_LIGHT, type ThemeId } from './theme'
+import type { AccountSession } from './auth'
 
 export const STATE_STORAGE_KEY = 'day-labels.state.v2'
 export const LEGACY_STATE_STORAGE_KEY = 'day-labels.state.v1'
@@ -30,7 +31,7 @@ export interface SharedState {
 
 export interface DeviceState {
   theme: ThemeId
-  session: null
+  session: AccountSession | null
 }
 
 export interface PersistedDocumentV2 {
@@ -189,6 +190,21 @@ function parsePersistedStateV2(
     return null
   }
 
+  let session: AccountSession | null = null
+  if (device.session !== undefined && device.session !== null) {
+    if (
+      typeof device.session !== 'object' ||
+      typeof (device.session as Partial<AccountSession>).accountId !== 'string' ||
+      typeof (device.session as Partial<AccountSession>).email !== 'string'
+    ) {
+      return null
+    }
+    session = {
+      accountId: (device.session as AccountSession).accountId,
+      email: (device.session as AccountSession).email,
+    }
+  }
+
   const labels: Label[] = []
   for (const entry of shared.labels) {
     if (!isLabelV2(entry)) {
@@ -229,7 +245,7 @@ function parsePersistedStateV2(
       },
       device: {
         theme: device.theme,
-        session: null,
+        session,
       },
     },
     now,

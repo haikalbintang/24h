@@ -522,6 +522,46 @@ describe('v1 migration and edge cases', () => {
     expect(state?.shared.heartbeat).toBeNull()
   })
 
+  it('persists and restores Account session in device state', () => {
+    const session = {
+      accountId: 'acc-123',
+      email: 'alex@example.com',
+    }
+    const raw = JSON.stringify({
+      schemaVersion: 2,
+      shared: {
+        anchor,
+        labels: [
+          {
+            id: 'label-unaccounted',
+            name: 'Unaccounted',
+            colourId: 'grey',
+            archived: false,
+            updatedAt: anchor,
+          },
+        ],
+        blocks: [
+          {
+            id: 'block-1',
+            labelId: 'label-unaccounted',
+            start: anchor,
+            end: null,
+            updatedAt: anchor,
+          },
+        ],
+        activeLabelId: 'label-unaccounted',
+        heartbeat: null,
+      },
+      device: {
+        theme: 'dark',
+        session,
+      },
+    })
+
+    const state = decodePersistedState(raw, now)
+    expect(state?.device.session).toEqual(session)
+  })
+
   it('falls back to a valid v2 state without crashing on corrupt or unknown data', () => {
     const corruptInputs = [
       '{ not json',

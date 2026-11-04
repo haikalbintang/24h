@@ -19,6 +19,7 @@ import LabelsSection from "./LabelsSection";
 import { saveBlocksExport, saveJsonExport } from "./export";
 import TotalsSection from "./TotalsSection";
 import ReopenPrompt from "./ReopenPrompt";
+import AccountScreen from "./AccountScreen";
 import { useBlocks, UNDO_WINDOW_MS } from "./useBlocks";
 import type { Runtime } from "./runtime";
 
@@ -70,9 +71,16 @@ function MoonIcon() {
 }
 
 export default function App({ runtime }: AppProps) {
-  const [persisted, setPersisted] = useState<PersistedState>(() =>
-    loadPersistedState(runtime, runtime.clock.now())
-  );
+  const [persisted, setPersisted] = useState<PersistedState>(() => {
+    const loaded = loadPersistedState(runtime, runtime.clock.now());
+    return {
+      ...loaded,
+      device: {
+        ...loaded.device,
+        session: runtime.auth.getSession(),
+      },
+    };
+  });
 
   const anchor = persisted.shared.anchor;
   const now = useSyncExternalStore(
@@ -90,6 +98,7 @@ export default function App({ runtime }: AppProps) {
     wasActive: boolean;
   } | null>(null);
   const [pickedDayIndex, setPickedDayIndex] = useState<number | null>(null);
+  const [accountOpen, setAccountOpen] = useState(false);
   const selectedDay = getDaySnapshot(
     anchor,
     anchor + (pickedDayIndex ?? day.dayIndex) * DAY_MS
@@ -166,6 +175,28 @@ export default function App({ runtime }: AppProps) {
       }
     });
   }, [runtime, recordHeartbeat, saveState]);
+
+  useEffect(() => {
+    return runtime.auth.subscribe((authSession) => {
+      setPersisted((current) => ({
+        ...current,
+        device: {
+          ...current.device,
+          session: authSession,
+        },
+      }));
+    });
+  }, [runtime]);
+
+  const handleSignOut = () => {
+    setPersisted((current) => ({
+      ...current,
+      device: {
+        ...current.device,
+        session: null,
+      },
+    }));
+  };
 
   const createLabel = (
     name: string,
@@ -356,13 +387,20 @@ export default function App({ runtime }: AppProps) {
     >
       <div
         className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-6 py-8 sm:px-10"
-        inert={reopenPromptOpen}
+        inert={reopenPromptOpen || accountOpen}
       >
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-800 pb-5">
           <h1 className="text-xs font-semibold tracking-[0.28em] text-neutral-500 uppercase">
             Day Labels
           </h1>
           <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setAccountOpen(true)}
+              className={exportButtonClass}
+            >
+              Account
+            </button>
             <button
               type="button"
               onClick={toggleTheme}
@@ -432,7 +470,7 @@ export default function App({ runtime }: AppProps) {
           labels={persisted.shared.labels}
           activeLabelId={activeLabelId}
           dynamicBlocks={dynamicBlocks}
-          shortcutsEnabled={!reopenPromptOpen}
+          shortcutsEnabled={!reopenPromptOpen && !accountOpen}
           onRelabelBlock={relabelBlock}
           onSplitBlock={splitBlock}
           onSelectLabel={selectLabel}
@@ -485,6 +523,15 @@ export default function App({ runtime }: AppProps) {
           onEnd={endBlockAtLastSeen}
           onKeep={keepLabelThroughGap}
           onDismiss={dismissReopenPrompt}
+        />
+      ) : null}
+
+      {accountOpen ? (
+        <AccountScreen
+          session={persisted.device.session}
+          auth={runtime.auth}
+          onClose={() => setAccountOpen(false)}
+          onSignOut={handleSignOut}
         />
       ) : null}
     </main>
