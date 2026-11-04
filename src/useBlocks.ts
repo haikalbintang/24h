@@ -2,15 +2,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   closeActiveBlock,
   createLiveBlock,
-  editBlock as applyBlockEdit,
   fuseWithNeighbours,
-  getBlockEditError,
-  getBlockRestoreError,
   getBlockSplitError,
+  relabelBlock as applyRelabel,
   splitAtDayBoundaries,
   splitBlock,
 } from "./blocks";
-import type { Block, BlockEdit, BlockId, EditBounds } from "./blocks";
+import type { Block, BlockId } from "./blocks";
 import { HEARTBEAT_INTERVAL_MS, isReopenGap } from "./heartbeat";
 import { UNACCOUNTED_LABEL_ID } from "./labels";
 import type { Label, LabelId } from "./labels";
@@ -24,11 +22,6 @@ export interface UseBlocksInitialState {
 
 export const UNDO_WINDOW_MS = 5000;
 
-export interface DeletedBlock {
-  block: Block;
-  expiresAt: number;
-}
-
 export interface UseBlocksResult {
   blocks: Block[];
   dynamicBlocks: Block[];
@@ -41,17 +34,9 @@ export interface UseBlocksResult {
   endBlockAtLastSeen: () => void;
   keepLabelThroughGap: () => void;
   dismissReopenPrompt: () => void;
-  editBlock: (
-    id: BlockId,
-    edit: Omit<BlockEdit, "end">,
-    end: number | null,
-    bounds: Omit<EditBounds, "now">,
-  ) => string | null;
+  relabelBlock: (id: BlockId, labelId: LabelId) => string | null;
   splitBlock: (id: BlockId, at: number) => string | null;
-  deleteBlock: (id: BlockId) => void;
   deleteBlocksByLabel: (labelId: LabelId) => void;
-  deletedBlock: DeletedBlock | null;
-  undoDelete: () => string | null;
 }
 
 export function useBlocks(
@@ -67,7 +52,6 @@ export function useBlocks(
   const [lastSeen, setLastSeen] = useState<number | null>(
     initialState.lastSeen,
   );
-  const [deletedBlock, setDeletedBlock] = useState<DeletedBlock | null>(null);
   const [reopenDismissed, setReopenDismissed] = useState(false);
   const nextBlockId = useRef(
     Math.max(
@@ -201,13 +185,8 @@ export function useBlocks(
     setReopenDismissed(true);
   }, []);
 
-  const editBlock = useCallback(
-    (
-      id: BlockId,
-      edit: Omit<BlockEdit, "end">,
-      end: number | null,
-      bounds: Omit<EditBounds, "now">,
-    ) => {
+  const relabelBlock = useCallback(
+    (id: BlockId, labelId: LabelId) => {
       const at = getNow();
       const current = splitAtDayBoundaries(blocks, anchor, at);
       const target = current.find((block) => block.id === id);
@@ -216,46 +195,16 @@ export function useBlocks(
         return "That Block no longer exists.";
       }
 
-      // The active Block has no end to edit; it keeps running.
-      const fullEdit = {
-        ...edit,
-        end: target.end === null ? null : end,
-      };
-      const error = getBlockEditError(current, id, fullEdit, {
-        ...bounds,
-        now: at,
-      });
-
-      if (error) {
-        return error;
-      }
-
       setBlocks(
-        fuseWithNeighbours(applyBlockEdit(current, id, fullEdit), id, anchor),
+        fuseWithNeighbours(applyRelabel(current, id, labelId), id, anchor),
       );
 
+      // The active Block keeps running under its new Label.
       if (target.end === null) {
-        setActiveLabelId(edit.labelId);
+        setActiveLabelId(labelId);
       }
 
       return null;
-    },
-    [anchor, blocks, getNow],
-  );
-
-  const deleteBlock = useCallback(
-    (id: BlockId) => {
-      const at = getNow();
-      const current = splitAtDayBoundaries(blocks, anchor, at);
-      const target = current.find((block) => block.id === id);
-
-      // The active Block is still running, so it cannot be deleted.
-      if (!target || target.end === null) {
-        return;
-      }
-
-      setBlocks(current.filter((block) => block.id !== id));
-      setDeletedBlock({ block: target, expiresAt: at + UNDO_WINDOW_MS });
     },
     [anchor, blocks, getNow],
   );
@@ -268,11 +217,8 @@ export function useBlocks(
       if (activeLabelId === labelId) {
         setActiveLabelId(UNACCOUNTED_LABEL_ID);
       }
-      if (deletedBlock?.block.labelId === labelId) {
-        setDeletedBlock(null);
-      }
     },
-    [activeLabelId, deletedBlock],
+    [activeLabelId],
   );
 
   const splitBlockAt = useCallback(
@@ -292,27 +238,6 @@ export function useBlocks(
     [anchor, blocks, createBlockId, getNow],
   );
 
-  const undoDelete = useCallback(() => {
-    const at = getNow();
-
-    if (!deletedBlock || at >= deletedBlock.expiresAt) {
-      return "Nothing to undo.";
-    }
-
-    const current = splitAtDayBoundaries(blocks, anchor, at);
-    const error = getBlockRestoreError(current, deletedBlock.block, at);
-
-    if (error) {
-      setDeletedBlock(null);
-      return error;
-    }
-
-    setBlocks([...current, deletedBlock.block]);
-    setDeletedBlock(null);
-
-    return null;
-  }, [anchor, blocks, deletedBlock, getNow]);
-
   return {
     blocks,
     dynamicBlocks,
@@ -325,11 +250,8 @@ export function useBlocks(
     endBlockAtLastSeen,
     keepLabelThroughGap,
     dismissReopenPrompt,
-    editBlock,
+    relabelBlock,
     splitBlock: splitBlockAt,
-    deleteBlock,
     deleteBlocksByLabel,
-    deletedBlock,
-    undoDelete,
   };
 }

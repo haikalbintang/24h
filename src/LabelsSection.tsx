@@ -9,7 +9,6 @@ import {
 } from "./labels";
 import type { Label, LabelColourId, LabelId } from "./labels";
 import BlocksSection from "./BlocksSection";
-import type { BlockEditRequest } from "./BlocksSection";
 import type { Block } from "./blocks";
 
 interface LabelsSectionProps {
@@ -20,9 +19,8 @@ interface LabelsSectionProps {
   activeLabelId: LabelId | null;
   dynamicBlocks: Block[];
   shortcutsEnabled: boolean;
-  onEditBlock: (id: string, edit: BlockEditRequest) => string | null;
+  onRelabelBlock: (id: string, labelId: LabelId) => string | null;
   onSplitBlock: (id: string, at: number) => string | null;
-  onDeleteBlock: (id: string) => void;
   onSelectLabel: (labelId: LabelId | null) => void;
   onToggleLabel: (labelId: LabelId) => void;
   onCreateLabel: (name: string, colourId: LabelColourId) => string | null;
@@ -43,9 +41,8 @@ export default function LabelsSection({
   activeLabelId,
   dynamicBlocks,
   shortcutsEnabled,
-  onEditBlock,
+  onRelabelBlock,
   onSplitBlock,
-  onDeleteBlock,
   onSelectLabel,
   onToggleLabel,
   onCreateLabel,
@@ -181,9 +178,8 @@ export default function LabelsSection({
       now={now}
       dayStart={dayStart}
       dayEnd={dayEnd}
-      onEditBlock={onEditBlock}
+      onRelabelBlock={onRelabelBlock}
       onSplitBlock={onSplitBlock}
-      onDeleteBlock={onDeleteBlock}
     />
     <section
       aria-labelledby="labels-heading"

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { formatClock, parseClock } from "./day";
 import { getBlockDuration } from "./blocks";
 import type { Block } from "./blocks";
-import { getLabelColour } from "./labels";
+import { getLabelColour, isLabelArchived } from "./labels";
 import type { Label, LabelId } from "./labels";
 
 function Icon({ children }: { children: React.ReactNode }) {
@@ -37,16 +37,6 @@ const ScissorsIcon = () => (
     <path d="M20 4 8.12 15.88" />
     <circle cx="6" cy="18" r="3" />
     <path d="M14.8 14.8 20 20" />
-  </Icon>
-);
-
-const TrashIcon = () => (
-  <Icon>
-    <path d="M3 6h18" />
-    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-    <line x1="10" x2="10" y1="11" y2="17" />
-    <line x1="14" x2="14" y1="11" y2="17" />
   </Icon>
 );
 
@@ -162,21 +152,14 @@ function BlockMenu({ items }: { items: BlockMenuItem[] }) {
 const iconButtonClass =
   "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-neutral-700 text-neutral-200";
 
-export interface BlockEditRequest {
-  start: number;
-  end: number | null;
-  labelId: LabelId;
-}
-
 interface BlocksSectionProps {
   blocks: Block[];
   labels: Label[];
   now: number;
   dayStart: number;
   dayEnd: number;
-  onEditBlock: (id: string, edit: BlockEditRequest) => string | null;
+  onRelabelBlock: (id: string, labelId: LabelId) => string | null;
   onSplitBlock: (id: string, at: number) => string | null;
-  onDeleteBlock: (id: string) => void;
 }
 
 export default function BlocksSection({
@@ -185,9 +168,8 @@ export default function BlocksSection({
   now,
   dayStart,
   dayEnd,
-  onEditBlock,
+  onRelabelBlock,
   onSplitBlock,
-  onDeleteBlock,
 }: BlocksSectionProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [splittingId, setSplittingId] = useState<string | null>(null);
@@ -195,8 +177,6 @@ export default function BlocksSection({
   const [splitError, setSplitError] = useState<string | null>(null);
   const [labelId, setLabelId] = useState<LabelId>("");
   const [error, setError] = useState<string | null>(null);
-  const [startText, setStartText] = useState("");
-  const [endText, setEndText] = useState("");
   const [isBlocksOpen, setIsBlocksOpen] = useState(true);
 
   const labelMap = new Map(labels.map((label) => [label.id, label]));
@@ -207,8 +187,6 @@ export default function BlocksSection({
 
   const startEditing = (block: Block) => {
     setEditingId(block.id);
-    setStartText(formatClock(block.start - dayStart));
-    setEndText(block.end === null ? "" : formatClock(block.end - dayStart));
     setLabelId(block.labelId);
     setError(null);
   };
@@ -243,19 +221,7 @@ export default function BlocksSection({
   const saveBlock = (event: React.FormEvent<HTMLFormElement>, block: Block) => {
     event.preventDefault();
 
-    const startOffset = parseClock(startText);
-    const endOffset = block.end === null ? null : parseClock(endText);
-
-    if (startOffset === null || (block.end !== null && endOffset === null)) {
-      setError("Enter times as HH:MM:SS.");
-      return;
-    }
-
-    const result = onEditBlock(block.id, {
-      start: dayStart + startOffset,
-      end: endOffset === null ? null : dayStart + endOffset,
-      labelId,
-    });
+    const result = onRelabelBlock(block.id, labelId);
 
     if (result) {
       setError(result);
@@ -358,17 +324,6 @@ export default function BlocksSection({
                             icon: <ScissorsIcon />,
                             onSelect: () => startSplitting(block),
                           },
-                          // Ongoing blocks can't be deleted, same as before
-                          ...(block.end === null
-                            ? []
-                            : [
-                              {
-                                label: "Delete",
-                                icon: <TrashIcon />,
-                                onSelect: () => onDeleteBlock(block.id),
-                                danger: true,
-                              },
-                            ]),
                         ]}
                       />
                     </div>
@@ -420,43 +375,23 @@ export default function BlocksSection({
                       >
                         <div className="flex flex-wrap gap-3">
                           <label className="grid gap-1 text-xs text-neutral-400">
-                            Start
-                            <input
-                              value={startText}
-                              aria-invalid={error !== null}
-                              onChange={(event) => {
-                                setStartText(event.target.value);
-                                setError(null);
-                              }}
-                              className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 font-mono text-sm text-neutral-100 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
-                            />
-                          </label>
-                          {block.end === null ? null : (
-                            <label className="grid gap-1 text-xs text-neutral-400">
-                              End
-                              <input
-                                value={endText}
-                                aria-invalid={error !== null}
-                                onChange={(event) => {
-                                  setEndText(event.target.value);
-                                  setError(null);
-                                }}
-                                className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 font-mono text-sm text-neutral-100 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
-                              />
-                            </label>
-                          )}
-                          <label className="grid gap-1 text-xs text-neutral-400">
                             Label
                             <select
                               value={labelId}
                               onChange={(event) => setLabelId(event.target.value)}
                               className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 text-sm text-neutral-100"
                             >
-                              {labels.map((option) => (
-                                <option key={option.id} value={option.id}>
-                                  {option.name}
-                                </option>
-                              ))}
+                              {labels
+                                .filter(
+                                  (option) =>
+                                    block.end !== null ||
+                                    !isLabelArchived(option),
+                                )
+                                .map((option) => (
+                                  <option key={option.id} value={option.id}>
+                                    {option.name}
+                                  </option>
+                                ))}
                             </select>
                           </label>
                         </div>

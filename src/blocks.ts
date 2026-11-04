@@ -86,66 +86,13 @@ export function closeActiveBlock(blocks: Block[], atTime: number): Block[] {
   );
 }
 
-export interface BlockEdit {
-  start: number;
-  end: number | null;
-  labelId: LabelId;
-}
-
-export interface EditBounds {
-  dayStart: number;
-  dayEnd: number;
-  now: number;
-}
-
-function overlapsAnother(
-  blocks: Block[],
-  id: BlockId | null,
-  start: number,
-  end: number,
-  now: number,
-): boolean {
-  return blocks.some(
-    (other) =>
-      other.id !== id && other.start < end && start < (other.end ?? now),
-  );
-}
-
-export function getBlockEditError(
-  blocks: Block[],
-  id: BlockId | null,
-  edit: BlockEdit,
-  bounds: EditBounds,
-): string | null {
-  const { dayStart, dayEnd, now } = bounds;
-  const effectiveEnd = edit.end ?? now;
-
-  if (effectiveEnd <= edit.start) {
-    return "The end must be after the start.";
-  }
-
-  if (edit.start > now || effectiveEnd > now) {
-    return "A Block cannot be in the future.";
-  }
-
-  if (edit.start < dayStart || effectiveEnd > dayEnd) {
-    return "A Block must stay within the selected Day.";
-  }
-
-  if (overlapsAnother(blocks, id, edit.start, effectiveEnd, now)) {
-    return "A Block cannot overlap another Block.";
-  }
-
-  return null;
-}
-
-export function editBlock(
+export function relabelBlock(
   blocks: Block[],
   id: BlockId,
-  edit: BlockEdit,
+  labelId: LabelId,
 ): Block[] {
   return blocks.map((block) =>
-    block.id === id ? { ...block, ...edit } : block,
+    block.id === id ? { ...block, labelId } : block,
   );
 }
 
@@ -182,21 +129,6 @@ export function splitBlock(
       ]
       : [block],
   );
-}
-
-export function getBlockRestoreError(
-  blocks: Block[],
-  block: Block,
-  now: number,
-): string | null {
-  if (
-    block.end !== null &&
-    overlapsAnother(blocks, null, block.start, block.end, now)
-  ) {
-    return "Cannot undo: the space is now taken by another Block.";
-  }
-
-  return null;
 }
 
 export function fuseWithNeighbours(

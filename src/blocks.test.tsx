@@ -241,10 +241,9 @@ async function setupTwoBlocks() {
   return ctx;
 }
 
-async function editBlock(
+async function openBlockEditForm(
   user: ReturnType<typeof userEvent.setup>,
   index: number,
-  fields: { start?: string; end?: string; label?: string },
 ) {
   await user.click(
     within(blockItems()[index]).getByRole("button", { name: "Block actions" }),
@@ -253,98 +252,91 @@ async function editBlock(
     within(screen.getByRole("menu", { name: "Block actions" })).getByRole("menuitem", { name: "Edit" }),
   );
 
-  const form = screen.getByRole("form", { name: "Edit block" });
+  return screen.getByRole("form", { name: "Edit block" });
+}
 
-  for (const [name, value] of [
-    ["Start", fields.start],
-    ["End", fields.end],
-  ] as const) {
-    if (value !== undefined) {
-      const input = within(form).getByRole("textbox", { name });
-      await user.clear(input);
-      await user.type(input, value);
-    }
-  }
+async function relabelBlock(
+  user: ReturnType<typeof userEvent.setup>,
+  index: number,
+  label: string,
+) {
+  const form = await openBlockEditForm(user, index);
 
-  if (fields.label !== undefined) {
-    await user.selectOptions(
-      within(form).getByRole("combobox", { name: "Label" }),
-      fields.label,
-    );
-  }
-
+  await user.selectOptions(
+    within(form).getByRole("combobox", { name: "Label" }),
+    label,
+  );
   await user.click(within(form).getByRole("button", { name: "Save block" }));
 }
 
-describe("Block editing", () => {
-  it("edits start and end to the second and updates the list", async () => {
-    const { user } = await setupTwoBlocks();
+const optionNames = (form: HTMLElement) =>
+  within(form)
+    .getAllByRole("option")
+    .map((option) => option.textContent);
 
-    await editBlock(user, 0, { start: "00:29:15", end: "00:38:45" });
-
-    expect(screen.queryByRole("form", { name: "Edit block" })).toBeNull();
-    expect(blockItems()[0]).toHaveTextContent("00:29:15 – 00:38:45");
-    expect(blockItems()[0]).toHaveTextContent("00:09:30");
-  });
-});
-
-describe("Block editing validation, reassign, delete, undo", () => {
+describe("Block corrections", () => {
   const dayTotals = () =>
     screen.getByRole("list", { name: "Selected day totals" });
 
-  it("updates totals immediately after an edit", async () => {
+  it("exposes only the Label in the edit form", async () => {
     const { user } = await setupTwoBlocks();
 
-    expect(dayTotals()).toHaveTextContent("00:10:00");
+    const form = await openBlockEditForm(user, 0);
 
-    await editBlock(user, 0, { end: "00:35:00" });
-
-    expect(dayTotals()).toHaveTextContent("00:05:00");
+    expect(within(form).getByRole("combobox", { name: "Label" })).toBeInTheDocument();
+    expect(within(form).queryByRole("textbox")).toBeNull();
   });
 
-  it.each([
-    [
-      "end before start",
-      { start: "00:40:00", end: "00:35:00" },
-      /end must be after/i,
-    ],
-    ["overlap", { end: "00:45:00" }, /overlap/i],
-    ["future time", { start: "00:30:00", end: "01:00:00" }, /future/i],
-    ["text that is not a time", { start: "soon" }, /HH:MM:SS/],
-  ])("rejects %s and saves nothing", async (_name, fields, message) => {
+  it("relabels a finished Block without moving its boundaries", async () => {
     const { user } = await setupTwoBlocks();
 
-    await editBlock(user, 0, fields);
+    await relabelBlock(user, 0, "Unaccounted");
 
-    expect(screen.getByRole("alert")).toHaveTextContent(message);
-
-    await user.click(screen.getByRole("button", { name: "Cancel" }));
-
+    expect(screen.queryByRole("form", { name: "Edit block" })).toBeNull();
+    expect(blockItems()[0]).toHaveTextContent("Unaccounted");
     expect(blockItems()[0]).toHaveTextContent("00:30:00 – 00:40:00");
+    expect(dayTotals()).toHaveTextContent("00:10:00");
   });
 
-  it("rejects times outside the selected Day", async () => {
+  it("offers every Label, archived ones included, for a finished Block", async () => {
     const { user } = await setupTwoBlocks();
 
-    // The first Block is the earliest on the Day, so it cannot start before 00:00:00,
-    // and 24:00:01 is past the Day end.
-    await editBlock(user, 1, { end: "25:00:00" });
+    await user.click(screen.getByRole("button", { name: "Manage labels" }));
+    await user.click(screen.getByRole("button", { name: "Archive Work" }));
 
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      /future|within the selected day/i,
+    const form = await openBlockEditForm(user, 1);
+
+    expect(optionNames(form)).toEqual(
+      expect.arrayContaining(["Work", "Rest", "Unaccounted"]),
     );
+
+    await user.selectOptions(
+      within(form).getByRole("combobox", { name: "Label" }),
+      "Work",
+    );
+    await user.click(within(form).getByRole("button", { name: "Save block" }));
+
+    // The relabelled Block fuses with the adjacent Work Block.
+    expect(blockItems()).toHaveLength(2);
+    expect(blockItems()[0]).toHaveTextContent("Work");
+    expect(blockItems()[0]).toHaveTextContent("00:30:00 – 00:50:00");
   });
 
-  it("reassigns a Block to another label", async () => {
+  it("offers only non-archived Labels for the active Block", async () => {
     const { user } = await setupTwoBlocks();
 
-    await editBlock(user, 0, { label: "Rest" });
+    await user.click(screen.getByRole("button", { name: "Manage labels" }));
+    await user.click(screen.getByRole("button", { name: "Archive Work" }));
 
-    expect(blockItems()[0]).toHaveTextContent("Rest");
-    expect(dayTotals()).toHaveTextContent("00:20:00");
+    const form = await openBlockEditForm(user, 2);
+
+    expect(optionNames(form)).toEqual(
+      expect.arrayContaining(["Rest", "Unaccounted"]),
+    );
+    expect(optionNames(form)).not.toContain("Work");
   });
 
-  it("lets the active Block change start and label but not end or deletion", async () => {
+  it("relabels the active Block without closing it", async () => {
     const { runtime, user } = setup();
 
     await createLabel(user, "Work");
@@ -352,81 +344,35 @@ describe("Block editing validation, reassign, delete, undo", () => {
     await user.click(screen.getByRole("button", { name: "Work" }));
     act(() => runtime.clock.advance(10 * MINUTE_MS));
 
-    expect(
-      within(blockItems()[0]).queryByRole("menuitem", { name: "Delete" }),
-    ).toBeNull();
+    await relabelBlock(user, 0, "Rest");
 
-    await user.click(
-      within(blockItems()[0]).getByRole("button", { name: "Block actions" }),
-    );
-    await user.click(
-      within(screen.getByRole("menu", { name: "Block actions" })).getByRole("menuitem", { name: "Edit" }),
-    );
-
-    expect(screen.queryByRole("textbox", { name: "End" })).toBeNull();
-
-    await editBlock(user, 0, { start: "00:25:00", label: "Rest" });
-
+    expect(blockItems()).toHaveLength(1);
     expect(blockItems()[0]).toHaveTextContent("Rest");
-    expect(blockItems()[0]).toHaveTextContent("00:25:00 – Ongoing");
+    expect(blockItems()[0]).toHaveTextContent("00:30:00 – Ongoing");
     expect(
       screen.getByRole("status", { name: "Active label" }),
     ).toHaveTextContent("Rest");
   });
 
-  it("deletes a Block and restores it from the undo toast", async () => {
+  it("offers no Delete action on any Block", async () => {
     const { user } = await setupTwoBlocks();
 
-    await user.click(
-      within(blockItems()[1]).getByRole("button", { name: "Block actions" }),
-    );
-    await user.click(
-      within(screen.getByRole("menu", { name: "Block actions" })).getByRole("menuitem", { name: "Delete" }),
-    );
+    for (const index of [0, 2]) {
+      await user.click(
+        within(blockItems()[index]).getByRole("button", {
+          name: "Block actions",
+        }),
+      );
 
-    expect(blockItems()).toHaveLength(2);
-    expect(dayTotals()).toHaveTextContent("00:10:00");
+      const menu = screen.getByRole("menu", { name: "Block actions" });
 
-    await user.click(screen.getByRole("button", { name: "Undo" }));
+      expect(within(menu).queryByRole("menuitem", { name: "Delete" })).toBeNull();
 
-    expect(blockItems()).toHaveLength(3);
-    expect(blockItems()[1]).toHaveTextContent("00:40:00 – 00:50:00");
+      await user.keyboard("{Escape}");
+    }
   });
 
-  it("removes the undo toast after about five seconds", async () => {
-    const { runtime, user } = await setupTwoBlocks();
-
-    await user.click(
-      within(blockItems()[1]).getByRole("button", { name: "Block actions" }),
-    );
-    await user.click(
-      within(screen.getByRole("menu", { name: "Block actions" })).getByRole("menuitem", { name: "Delete" }),
-    );
-    act(() => runtime.clock.advance(6 * SECOND_MS));
-
-    expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
-    expect(blockItems()).toHaveLength(2);
-  });
-
-  it("refuses an undo when the space has been filled", async () => {
-    const { user } = await setupTwoBlocks();
-
-    await user.click(
-      within(blockItems()[1]).getByRole("button", { name: "Block actions" }),
-    );
-    await user.click(
-      within(screen.getByRole("menu", { name: "Block actions" })).getByRole("menuitem", { name: "Delete" }),
-    );
-    await editBlock(user, 0, { end: "00:50:00" });
-    await user.click(screen.getByRole("button", { name: "Undo" }));
-
-    expect(screen.getByRole("status", { name: "Undo" })).toHaveTextContent(
-      /cannot undo/i,
-    );
-    expect(blockItems()).toHaveLength(2);
-  });
-
-  it("edits Blocks on a past Day", async () => {
+  it("relabels Blocks on a past Day", async () => {
     const { runtime, user } = await setupTwoBlocks();
 
     act(() => runtime.clock.advance(24 * HOUR_MS));
@@ -434,9 +380,9 @@ describe("Block editing validation, reassign, delete, undo", () => {
       screen.getByRole("combobox", { name: "Day" }),
       "Mar 8, 2026",
     );
-    await editBlock(user, 0, { end: "00:35:00" });
+    await relabelBlock(user, 0, "Rest");
 
-    expect(blockItems()[0]).toHaveTextContent("00:30:00 – 00:35:00");
+    expect(blockItems()[0]).toHaveTextContent("Rest");
   });
 });
 

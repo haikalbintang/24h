@@ -119,11 +119,8 @@ export default function App({ runtime }: AppProps) {
     endBlockAtLastSeen,
     keepLabelThroughGap,
     dismissReopenPrompt,
-    editBlock,
+    relabelBlock,
     splitBlock,
-    deleteBlock,
-    deletedBlock,
-    undoDelete,
   } = useBlocks(anchor, now, runtime.clock.now, {
     blocks: persisted.blocks,
     labels: persisted.labels,
@@ -131,7 +128,6 @@ export default function App({ runtime }: AppProps) {
     lastSeen: persisted.lastSeen,
   });
 
-  const undoVisible = deletedBlock !== null && now < deletedBlock.expiresAt;
   const archiveUndoVisible =
     archivedUndo !== null && now < archivedUndo.expiresAt;
 
@@ -391,19 +387,8 @@ export default function App({ runtime }: AppProps) {
           activeLabelId={activeLabelId}
           dynamicBlocks={dynamicBlocks}
           shortcutsEnabled={!reopenPromptOpen}
-          onEditBlock={(id, edit) =>
-            editBlock(
-              id,
-              { start: edit.start, labelId: edit.labelId },
-              edit.end,
-              { dayStart: selectedDay.dayStart, dayEnd: selectedDay.dayEnd }
-            )
-          }
+          onRelabelBlock={relabelBlock}
           onSplitBlock={splitBlock}
-          onDeleteBlock={(id) => {
-            setUndoError(null);
-            deleteBlock(id);
-          }}
           onSelectLabel={selectLabel}
           onToggleLabel={toggleLabel}
           onCreateLabel={createLabel}
@@ -422,7 +407,7 @@ export default function App({ runtime }: AppProps) {
         />
       </div>
 
-      {archiveUndoVisible || undoVisible || undoError ? (
+      {archiveUndoVisible || undoError ? (
         <div
           role="status"
           aria-label="Undo"
@@ -434,17 +419,6 @@ export default function App({ runtime }: AppProps) {
               <button
                 type="button"
                 onClick={() => setUndoError(undoArchive())}
-                className="font-semibold text-neutral-100 underline focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
-              >
-                Undo
-              </button>
-            </>
-          ) : undoVisible ? (
-            <>
-              <span>Block deleted.</span>
-              <button
-                type="button"
-                onClick={() => setUndoError(undoDelete())}
                 className="font-semibold text-neutral-100 underline focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
               >
                 Undo
