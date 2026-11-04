@@ -1,5 +1,7 @@
 # Treat Labels as mutable identities, never deletions
 
+**Status**: Amended by [ADR-0006](./0006-hide-archived-from-summaries.md).
+
 A Label has a stable identity; renaming or recolouring it updates every Block that references it, and archiving hides it from the picker without touching history. This preserves the user's past records and avoids mass rewrites. The deliberate consequence is that Labels cannot be hard-deleted, and archived Labels remain visible on historical Blocks.
 
 ## Considered Options

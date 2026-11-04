@@ -1,5 +1,7 @@
 # Store all data client-side in localStorage
 
+**Status**: Superseded by [ADR-0004](./0004-optional-accounts-and-sync.md).
+
 The app has no server, accounts, or sync; all Labels and Blocks live in the browser's localStorage on the single device. This keeps deployment to a static site, works offline, and avoids backend cost and personal-data exposure. The trade-off is that data is device-bound and can be lost when browser storage is cleared, so JSON and CSV export are the escape hatch rather than a sync feature.
 
 ## Considered Options

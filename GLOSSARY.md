@@ -1,6 +1,6 @@
 # Day Labels
 
-A single-page personal time tracker that shows the current day as a running clock and records what the user is doing through one active label at a time.
+A single-page personal time tracker that shows the current day as a running clock and records what the user is doing through one active label at a time. An account is optional; without one, all data stays on the current device.
 
 ## Language
 
@@ -25,37 +25,45 @@ A user-created activity tag that describes what is currently happening.
 _Avoid_: tag, category, status
 
 **Active label**:
-The single label currently applied to the day clock, if any.
-_Avoid_: current tag, selected category
+The single Label currently applied to the Day clock. It is always present and falls back to the Unaccounted label when the user deselects another Label.
+_Avoid_: current tag, selected category, unlabeled
 
-**Unlabeled**:
-The state in which no label is active. The day clock keeps running, but no block accrues. A new install starts here.
-_Avoid_: idle, spare, no tag
+**Unaccounted label**:
+The built-in Label that is active whenever the user has not chosen another. It cannot be renamed, recoloured, or archived.
+_Avoid_: default label, idle label
 
 **Block**:
-A continuous span during which one label was active, bounded by a label change or a day boundary. Crossing either closes the current block and opens the next.
-_Avoid_: interval, session, slot, entry
-
-**Manual block**:
-A block the user creates retroactively over a gap or corrects after the fact, rather than one recorded live.
-_Avoid_: backfill, entry, correction
+A continuous span during which one Label was active, bounded by a Label change or a Day boundary. Once recorded, its start and end are fixed; only its Label can change, or it can be split.
+_Avoid_: interval, session, slot, entry, manual block, backfill
 
 **Gap**:
-A span during which the app was not running, so no block was recorded. A gap of two minutes or less is treated as uninterrupted and extends the open Block; a longer gap is left empty in history until the user edits it.
+A span during which no device was running, so no Block was recorded. A gap of two minutes or less extends the open Block; a longer gap stays Unaccounted and cannot be filled retroactively.
 _Avoid_: hole, downtime, missing time
 
 **Heartbeat**:
-The last-seen timestamp written about every minute while a Block is open, and immediately when the page is hidden or unloaded. It lets the app measure how long it was not running.
+The last-seen timestamp recorded while a Block is open. Across an Account, the greatest Heartbeat shows whether any device was running.
 _Avoid_: ping, tick, autosave
 
 **Reopen prompt**:
 The modal shown when a Block is still open but the gap since the last Heartbeat exceeds two minutes. It asks whether to end the Block at the last Heartbeat or keep the label through the gap.
 _Avoid_: resume dialog, away modal, recovery prompt
 
-**Unaccounted**:
-Time within a Day that is not covered by any Block, whether Unlabeled or a Gap.
+**Unaccounted total**:
+The time in a Day that is not attributed to a non-archived Label: Unaccounted-label Blocks, Archived-label Blocks, and Gaps.
 _Avoid_: unlabelled, missing time, idle
 
 **Archived label**:
-A label removed from the picker but retained so that its past blocks keep their identity.
+A Label removed from the picker but retained on past Blocks. It is hidden from Totals and the Timeline, and its time is included in the Unaccounted total.
 _Avoid_: deleted label, hidden label
+
+**Account**:
+An optional identity that keeps Shared state in sync across the devices signed in to it. Without an Account, the app is single-device.
+_Avoid_: user, profile, login
+
+**Shared state**:
+The Anchor, Labels, Blocks, Active label, and Heartbeat that an Account keeps consistent across its devices.
+_Avoid_: cloud data, server data
+
+**Device state**:
+Data that belongs to one installation and is never synced, such as the theme and the Account session.
+_Avoid_: local data, cache
