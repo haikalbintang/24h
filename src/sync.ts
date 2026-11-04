@@ -32,6 +32,66 @@ export interface SyncAdapter {
   ): Promise<SyncPushResult>
 }
 
+function compareBlocksForRepair(a: Block, b: Block): number {
+  if (a.start !== b.start) {
+    return a.start - b.start
+  }
+  const updatedA = a.updatedAt ?? a.start
+  const updatedB = b.updatedAt ?? b.start
+  if (updatedA !== updatedB) {
+    return updatedA - updatedB
+  }
+  return a.id.localeCompare(b.id)
+}
+
+/**
+ * Deterministically repairs overlapping Blocks: the later start wins and the
+ * earlier Block closes at that instant, leaving no gaps or overlaps and never
+ * two open Blocks.
+ */
+export function repairOverlappingBlocks(blocks: Block[]): Block[] {
+  if (blocks.length <= 1) {
+    return blocks.filter((b) => b.end === null || b.end > b.start)
+  }
+
+  const sorted = [...blocks].sort(compareBlocksForRepair)
+  const repaired: Block[] = []
+
+  for (const block of sorted) {
+    if (block.end !== null && block.end <= block.start) {
+      continue
+    }
+
+    const current: Block = { ...block }
+
+    while (repaired.length > 0) {
+      const prev = repaired[repaired.length - 1]
+      const overlaps = prev.end === null || prev.end > current.start
+
+      if (!overlaps) {
+        break
+      }
+
+      // Overlap detected: later start wins, earlier block closes at current.start
+      if (current.start === prev.start) {
+        // Tie in start time: the earlier-sorted loser closes at current.start,
+        // leaving zero duration; discard it.
+        repaired.pop()
+        continue
+      }
+
+      prev.end = current.start
+      prev.updatedAt = Math.max(prev.updatedAt ?? 0, current.start)
+
+      break
+    }
+
+    repaired.push(current)
+  }
+
+  return repaired
+}
+
 export function mergeSharedState(
   local: SharedState,
   remote: SharedState,
@@ -91,41 +151,13 @@ export function mergeSharedState(
     }
   }
 
-  const mergedBlocks = Array.from(mergedBlocksMap.values()).sort(
-    (a, b) => a.start - b.start || a.id.localeCompare(b.id),
+  const finalBlocks = repairOverlappingBlocks(
+    Array.from(mergedBlocksMap.values()),
   )
 
-  // Determine active label: from the winning open block if any
-  const openBlocks = mergedBlocks.filter((b) => b.end === null)
-  let activeLabelId = local.activeLabelId
-  let finalBlocks = mergedBlocks
-
-  if (openBlocks.length > 0) {
-    // Winner is the open block with the latest updatedAt or start
-    const winningOpenBlock = openBlocks.reduce((latest, current) => {
-      const latestTime = latest.updatedAt ?? latest.start
-      const currentTime = current.updatedAt ?? current.start
-      return currentTime >= latestTime ? current : latest
-    }, openBlocks[0])
-
-    activeLabelId = winningOpenBlock.labelId
-
-    if (openBlocks.length > 1) {
-      finalBlocks = mergedBlocks.map((block) => {
-        if (block.end === null && block.id !== winningOpenBlock.id) {
-          return {
-            ...block,
-            end: Math.max(block.start, winningOpenBlock.start),
-            updatedAt: Math.max(block.updatedAt ?? 0, winningOpenBlock.start),
-          }
-        }
-        return block
-      })
-    }
-  } else {
-    // If no open blocks, fallback to UNACCOUNTED_LABEL_ID
-    activeLabelId = UNACCOUNTED_LABEL_ID
-  }
+  const openBlocks = finalBlocks.filter((b) => b.end === null)
+  const activeLabelId =
+    openBlocks.length > 0 ? openBlocks[0].labelId : UNACCOUNTED_LABEL_ID
 
   let mergedHeartbeat: number | null = null
   if (local.heartbeat !== null && remote.heartbeat !== null) {
@@ -308,7 +340,11 @@ export class SyncCoordinator {
           this.queuedSince = this.queuedSince ?? Date.now()
         }
       } else if (this.baseVersion === null || remote.version > this.baseVersion) {
-        const merged = mergeSharedState(this.getSharedState(), remote.shared)
+        const localShared = this.getSharedState()
+        const merged =
+          this.baseVersion === null && !hasUserData(localShared)
+            ? remote.shared
+            : mergeSharedState(localShared, remote.shared)
         this.baseVersion = remote.version
         this.setSharedState(merged)
         this.markSynced(session.accountId)

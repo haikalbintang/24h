@@ -271,8 +271,11 @@ export function useBlocks(
       if (state.activeLabelId !== undefined) {
         setActiveLabelId(state.activeLabelId ?? UNACCOUNTED_LABEL_ID);
       }
-      if (state.lastSeen !== undefined) {
-        setLastSeen(state.lastSeen);
+      if (state.lastSeen !== undefined && state.lastSeen !== null) {
+        const incoming = state.lastSeen;
+        setLastSeen((current) =>
+          current === null ? incoming : Math.max(current, incoming),
+        );
       }
     },
     [],

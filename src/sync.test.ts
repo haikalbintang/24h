@@ -128,6 +128,128 @@ describe('mergeSharedState', () => {
     expect(merged.activeLabelId).toBe('label-2')
     expect(merged.heartbeat).toBe(2800)
   })
+
+  it('repairs overlapping closed blocks deterministically: later start wins and earlier block closes at that instant', () => {
+    const local: SharedState = {
+      anchor: 1000,
+      labels: [createUnaccountedLabel(100), { id: 'label-1', name: 'Work', colourId: 'blue', updatedAt: 100 }],
+      blocks: [
+        { id: 'block-a', labelId: 'label-1', start: 1000, end: 3000, updatedAt: 100 },
+      ],
+      activeLabelId: UNACCOUNTED_LABEL_ID,
+      heartbeat: 3000,
+    }
+
+    const remote: SharedState = {
+      anchor: 1000,
+      labels: [createUnaccountedLabel(100), { id: 'label-2', name: 'Play', colourId: 'red', updatedAt: 100 }],
+      blocks: [
+        { id: 'block-b', labelId: 'label-2', start: 2000, end: 4000, updatedAt: 150 },
+      ],
+      activeLabelId: UNACCOUNTED_LABEL_ID,
+      heartbeat: 4000,
+    }
+
+    const merged = mergeSharedState(local, remote)
+
+    // block-b has later start (2000 > 1000). Later start wins.
+    // block-a closes at that instant (2000), leaving no gaps or overlaps.
+    expect(merged.blocks).toEqual([
+      { id: 'block-a', labelId: 'label-1', start: 1000, end: 2000, updatedAt: 2000 },
+      { id: 'block-b', labelId: 'label-2', start: 2000, end: 4000, updatedAt: 150 },
+    ])
+  })
+
+  it('leaves at most one open Block surviving any merge and closes earlier open Block at later start', () => {
+    const local: SharedState = {
+      anchor: 1000,
+      labels: [createUnaccountedLabel(100), { id: 'label-1', name: 'Work', colourId: 'blue', updatedAt: 100 }],
+      blocks: [
+        { id: 'block-local', labelId: 'label-1', start: 1000, end: null, updatedAt: 1000 },
+      ],
+      activeLabelId: 'label-1',
+      heartbeat: 1000,
+    }
+
+    const remote: SharedState = {
+      anchor: 1000,
+      labels: [createUnaccountedLabel(100), { id: 'label-2', name: 'Coding', colourId: 'green', updatedAt: 100 }],
+      blocks: [
+        { id: 'block-remote', labelId: 'label-2', start: 1500, end: null, updatedAt: 1500 },
+      ],
+      activeLabelId: 'label-2',
+      heartbeat: 1500,
+    }
+
+    const merged = mergeSharedState(local, remote)
+
+    // block-remote started at 1500 (> 1000), so it wins.
+    // block-local closes at 1500. Exactly one open block survives.
+    expect(merged.blocks).toEqual([
+      { id: 'block-local', labelId: 'label-1', start: 1000, end: 1500, updatedAt: 1500 },
+      { id: 'block-remote', labelId: 'label-2', start: 1500, end: null, updatedAt: 1500 },
+    ])
+    expect(merged.activeLabelId).toBe('label-2')
+  })
+
+  it('deterministically breaks ties when two blocks have identical start times', () => {
+    const local: SharedState = {
+      anchor: 1000,
+      labels: [createUnaccountedLabel(100), { id: 'label-1', name: 'Work', colourId: 'blue', updatedAt: 100 }],
+      blocks: [
+        { id: 'block-1', labelId: 'label-1', start: 1000, end: null, updatedAt: 100 },
+      ],
+      activeLabelId: 'label-1',
+      heartbeat: 1000,
+    }
+
+    const remote: SharedState = {
+      anchor: 1000,
+      labels: [createUnaccountedLabel(100), { id: 'label-2', name: 'Exercise', colourId: 'green', updatedAt: 100 }],
+      blocks: [
+        { id: 'block-2', labelId: 'label-2', start: 1000, end: null, updatedAt: 200 },
+      ],
+      activeLabelId: 'label-2',
+      heartbeat: 1000,
+    }
+
+    const merged = mergeSharedState(local, remote)
+
+    // block-2 has higher updatedAt at the same start (1000). It wins.
+    // block-1 closes at 1000 (duration 0) and is dropped.
+    expect(merged.blocks).toEqual([
+      { id: 'block-2', labelId: 'label-2', start: 1000, end: null, updatedAt: 200 },
+    ])
+    expect(merged.activeLabelId).toBe('label-2')
+  })
+
+  it('keeps the greatest Heartbeat across devices', () => {
+    const local: SharedState = {
+      anchor: 1000,
+      labels: [createUnaccountedLabel(100), { id: 'label-1', name: 'Work', colourId: 'blue', updatedAt: 100 }],
+      blocks: [
+        { id: 'block-1', labelId: 'label-1', start: 1000, end: null, updatedAt: 100 },
+      ],
+      activeLabelId: 'label-1',
+      heartbeat: 1200,
+    }
+
+    const remote: SharedState = {
+      anchor: 1000,
+      labels: [createUnaccountedLabel(100), { id: 'label-2', name: 'Exercise', colourId: 'green', updatedAt: 100 }],
+      blocks: [
+        { id: 'block-2', labelId: 'label-2', start: 2000, end: null, updatedAt: 2000 },
+      ],
+      activeLabelId: 'label-2',
+      heartbeat: 1100,
+    }
+
+    const merged = mergeSharedState(local, remote)
+
+    // Greatest heartbeat between 1200 and 1100 is 1200
+    expect(merged.heartbeat).toBe(1200)
+    expect(merged.activeLabelId).toBe('label-2')
+  })
 })
 
 describe('SyncCoordinator', () => {

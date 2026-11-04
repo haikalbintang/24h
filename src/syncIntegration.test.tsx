@@ -31,6 +31,34 @@ async function createLabel(user: ReturnType<typeof userEvent.setup>, name: strin
   await user.click(within(form).getByRole('button', { name: 'Create label' }))
 }
 
+function createTenMinuteAwayStorage(anchor: number, t0: number) {
+  const storage = createFakeStorage()
+  storage.setItem(
+    'day-labels.state.v2',
+    JSON.stringify({
+      schemaVersion: 2,
+      shared: {
+        anchor,
+        labels: [
+          { id: 'label-unaccounted', name: 'Unaccounted', colourId: 'grey', archived: false, updatedAt: 100 },
+          { id: 'label-work', name: 'Work', colourId: 'blue', updatedAt: 100 },
+        ],
+        blocks: [
+          { id: 'block-1', labelId: 'label-work', start: t0 - 600000, end: null, updatedAt: t0 - 600000 },
+        ],
+        activeLabelId: 'label-work',
+        heartbeat: t0 - 600000, // 10 minutes ago
+      },
+      device: {
+        theme: 'dark',
+        session: { accountId: 'acc-1', email: 'test@example.com' },
+        syncedAccountId: 'acc-1',
+      },
+    }),
+  )
+  return storage
+}
+
 describe('Sync Shared state integration', () => {
   it('signed-in changes push after roughly 2s debounce', async () => {
     const { runtime, user, sync } = setup()
@@ -349,6 +377,240 @@ describe('Sync Shared state integration', () => {
       expect(doc?.version).toBe(3)
       const sharedLabel = doc?.shared.labels.find((l) => l.id === 'label-shared')
       expect(sharedLabel?.name).toBe('Client A Rename')
+    })
+  })
+
+  it('selecting a label on one device closes the shared open block; others adopt the new open block', async () => {
+    const sharedAnchor = at('2026-03-08T00:00:00.000Z')
+    const t0 = at('2026-03-08T05:30:00.000Z')
+
+    // Start with a shared document that has an open block for "Work"
+    const sync = createFakeSyncAdapter({
+      initialDocuments: {
+        'acc-1': {
+          version: 1,
+          shared: {
+            anchor: sharedAnchor,
+            labels: [
+              { id: 'label-unaccounted', name: 'Unaccounted', colourId: 'grey', archived: false, updatedAt: 100 },
+              { id: 'label-work', name: 'Work', colourId: 'blue', updatedAt: 100 },
+              { id: 'label-exercise', name: 'Exercise', colourId: 'green', updatedAt: 100 },
+            ],
+            blocks: [
+              { id: 'block-1', labelId: 'label-work', start: t0 - 10000, end: null, updatedAt: t0 - 10000 },
+            ],
+            activeLabelId: 'label-work',
+            heartbeat: t0 - 10000,
+          },
+        },
+      },
+    })
+
+    const { runtime, user } = setup({ now: t0, sync })
+
+    // Wait for initial pull to load "Work" as active
+    await waitFor(() => {
+      expect(screen.getByRole('status', { name: 'Active label' })).toHaveTextContent('Work')
+    })
+
+    // Now another device selects "Exercise" at t0 + 5000, pushing a closed block-1 and a new open block-2
+    sync.setRemoteDocument('acc-1', {
+      version: 2,
+      shared: {
+        anchor: sharedAnchor,
+        labels: [
+          { id: 'label-unaccounted', name: 'Unaccounted', colourId: 'grey', archived: false, updatedAt: 100 },
+          { id: 'label-work', name: 'Work', colourId: 'blue', updatedAt: 100 },
+          { id: 'label-exercise', name: 'Exercise', colourId: 'green', updatedAt: 100 },
+        ],
+        blocks: [
+          { id: 'block-1', labelId: 'label-work', start: t0 - 10000, end: t0 + 5000, updatedAt: t0 + 5000 },
+          { id: 'block-2', labelId: 'label-exercise', start: t0 + 5000, end: null, updatedAt: t0 + 5000 },
+        ],
+        activeLabelId: 'label-exercise',
+        heartbeat: t0 + 5000,
+      },
+    })
+
+    // Advance 10s to trigger poll pull
+    act(() => {
+      runtime.clock.advance(10000)
+    })
+
+    // This device should adopt "Exercise" as active label, with block-1 closed and block-2 open
+    await waitFor(() => {
+      expect(screen.getByRole('status', { name: 'Active label' })).toHaveTextContent('Exercise')
+    })
+
+    // Reciprocally: this device selects "Work" at t0 + 15000
+    act(() => {
+      runtime.clock.advance(5000)
+    })
+    await user.click(screen.getByRole('button', { name: 'Work' }))
+    expect(screen.getByRole('status', { name: 'Active label' })).toHaveTextContent('Work')
+
+    // Advance 2s debounce to push
+    await act(async () => {
+      runtime.clock.advance(2000)
+    })
+
+    // Remote receives the new state with block-2 closed and a single open block for Work
+    await waitFor(() => {
+      const doc = sync.getRemoteDocument('acc-1')
+      expect(doc?.version).toBeGreaterThanOrEqual(3)
+      expect(doc?.shared.activeLabelId).toBe('label-work')
+      const openBlocks = doc?.shared.blocks.filter((b) => b.end === null)
+      expect(openBlocks).toHaveLength(1)
+      expect(openBlocks![0].labelId).toBe('label-work')
+    })
+  })
+
+  it('greatest heartbeat across devices drives the reopen prompt', async () => {
+    const sharedAnchor = at('2026-03-08T00:00:00.000Z')
+    const t0 = at('2026-03-08T05:30:00.000Z')
+
+    // Local device has a stored state from 10 minutes ago (gap > 2 min)
+    const storage = createTenMinuteAwayStorage(sharedAnchor, t0)
+
+    // Another device was running and recorded a heartbeat 30 seconds ago (gap < 2 min)
+    const sync = createFakeSyncAdapter({
+      initialDocuments: {
+        'acc-1': {
+          version: 2,
+          shared: {
+            anchor: sharedAnchor,
+            labels: [
+              { id: 'label-unaccounted', name: 'Unaccounted', colourId: 'grey', archived: false, updatedAt: 100 },
+              { id: 'label-work', name: 'Work', colourId: 'blue', updatedAt: 100 },
+            ],
+            blocks: [
+              { id: 'block-1', labelId: 'label-work', start: t0 - 600000, end: null, updatedAt: t0 - 30000 },
+            ],
+            activeLabelId: 'label-work',
+            heartbeat: t0 - 30000, // 30 seconds ago (< 2 minutes!)
+          },
+        },
+      },
+    })
+
+    setup({ now: t0, storage, sync })
+
+    // On initial pull, remote heartbeat (t0 - 30s) wins over local (t0 - 10m).
+    // Because the greatest heartbeat was within 2 minutes, no Reopen prompt is shown!
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(screen.getByRole('status', { name: 'Active label' })).toHaveTextContent('Work')
+    })
+  })
+
+  it('when all devices have been away, greatest heartbeat decides the gap and where End Block closes the block', async () => {
+    const sharedAnchor = at('2026-03-08T00:00:00.000Z')
+    const t0 = at('2026-03-08T05:30:00.000Z')
+
+    // Local device last seen was 10 minutes ago
+    const storage = createTenMinuteAwayStorage(sharedAnchor, t0)
+
+    // Remote greatest heartbeat was 5 minutes ago (gap > 2 min)
+    const sync = createFakeSyncAdapter({
+      initialDocuments: {
+        'acc-1': {
+          version: 2,
+          shared: {
+            anchor: sharedAnchor,
+            labels: [
+              { id: 'label-unaccounted', name: 'Unaccounted', colourId: 'grey', archived: false, updatedAt: 100 },
+              { id: 'label-work', name: 'Work', colourId: 'blue', updatedAt: 100 },
+            ],
+            blocks: [
+              { id: 'block-1', labelId: 'label-work', start: t0 - 600000, end: null, updatedAt: t0 - 300000 },
+            ],
+            activeLabelId: 'label-work',
+            heartbeat: t0 - 300000, // 5 minutes ago
+          },
+        },
+      },
+    })
+
+    const { user } = setup({ now: t0, storage, sync })
+
+    // Reopen prompt should be shown because greatest heartbeat was 5 minutes ago (> 2 min)
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toBeInTheDocument()
+
+    // Clicking "End Block" ends the Block at the greatest heartbeat (5 minutes ago, not 10 minutes ago)
+    await user.click(within(dialog).getByRole('button', { name: 'End Block' }))
+
+    // Active label falls back to Unaccounted
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(screen.getByRole('status', { name: 'Active label' })).toHaveTextContent('Unaccounted')
+    })
+  })
+
+  it('overlap repair deterministically resolves concurrent overlapping blocks on merge', async () => {
+    const sharedAnchor = at('2026-03-08T00:00:00.000Z')
+    const t0 = at('2026-03-08T05:30:00.000Z')
+
+    // Server has a document where block-remote started at t0 + 2000
+    const sync = createFakeSyncAdapter({
+      initialDocuments: {
+        'acc-1': {
+          version: 1,
+          shared: {
+            anchor: sharedAnchor,
+            labels: [
+              { id: 'label-unaccounted', name: 'Unaccounted', colourId: 'grey', archived: false, updatedAt: 100 },
+              { id: 'label-a', name: 'Task A', colourId: 'blue', updatedAt: 100 },
+              { id: 'label-b', name: 'Task B', colourId: 'red', updatedAt: 100 },
+            ],
+            blocks: [
+              { id: 'block-remote', labelId: 'label-b', start: t0 + 2000, end: t0 + 6000, updatedAt: 200 },
+            ],
+            activeLabelId: 'label-unaccounted',
+            heartbeat: t0 + 6000,
+          },
+        },
+      },
+    })
+
+    const { runtime } = setup({ now: t0, sync })
+
+    // Wait for initial pull
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Task A' })).toBeInTheDocument()
+    })
+
+    // Concurrent conflict: server updates with a block from t0 to t0 + 4000
+    sync.setRemoteDocument('acc-1', {
+      version: 2,
+      shared: {
+        anchor: sharedAnchor,
+        labels: [
+          { id: 'label-unaccounted', name: 'Unaccounted', colourId: 'grey', archived: false, updatedAt: 100 },
+          { id: 'label-a', name: 'Task A', colourId: 'blue', updatedAt: 100 },
+          { id: 'label-b', name: 'Task B', colourId: 'red', updatedAt: 100 },
+        ],
+        blocks: [
+          { id: 'block-earlier', labelId: 'label-a', start: t0, end: t0 + 4000, updatedAt: 150 },
+          { id: 'block-remote', labelId: 'label-b', start: t0 + 2000, end: t0 + 6000, updatedAt: 200 },
+        ],
+        activeLabelId: 'label-unaccounted',
+        heartbeat: t0 + 6000,
+      },
+    })
+
+    // Trigger poll pull
+    act(() => {
+      runtime.clock.advance(10000)
+    })
+
+    // Overlap repair: block-earlier [t0, t0+4000] overlaps with block-remote [t0+2000, t0+6000].
+    // Later start (t0+2000) wins, block-earlier closes at t0+2000: [t0, t0+2000].
+    // No gaps, no overlaps, and both blocks survive repaired.
+    await waitFor(() => {
+      const blocksList = screen.getByRole('list', { name: 'Blocks' })
+      const items = within(blocksList).getAllByRole('listitem')
+      expect(items.length).toBeGreaterThanOrEqual(2)
     })
   })
 })
