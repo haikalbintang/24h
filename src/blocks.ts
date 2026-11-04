@@ -1,16 +1,13 @@
 import { DAY_MS } from "./day";
-import type { Label, LabelId } from "./labels";
+import type { LabelId } from "./labels";
 
 export type BlockId = string;
-
-export type BlockSource = "live" | "manual";
 
 export interface Block {
   id: BlockId;
   labelId: LabelId;
   start: number;
   end: number | null;
-  source: BlockSource;
 }
 
 export function createLiveBlock(
@@ -18,7 +15,7 @@ export function createLiveBlock(
   labelId: LabelId,
   start: number,
 ): Block {
-  return { id, labelId, start, end: null, source: "live" };
+  return { id, labelId, start, end: null };
 }
 
 export function getNextBlockId(blocks: Block[]): BlockId {
@@ -74,7 +71,6 @@ export function splitAtDayBoundaries(
       labelId,
       start: dayEnd,
       end: null,
-      source: result[index].source,
     });
     index = result.length - 1;
   }
@@ -151,27 +147,6 @@ export function editBlock(
   return blocks.map((block) =>
     block.id === id ? { ...block, ...edit } : block,
   );
-}
-
-export function getManualBlockError(
-  blocks: Block[],
-  edit: BlockEdit & { end: number },
-  bounds: EditBounds,
-  labels: Label[],
-): string | null {
-  if (!labels.some((label) => label.id === edit.labelId)) {
-    return "A Manual Block must use an active label.";
-  }
-
-  return getBlockEditError(blocks, null, edit, bounds);
-}
-
-export function createManualBlock(
-  blocks: Block[],
-  id: BlockId,
-  edit: BlockEdit & { end: number },
-): Block[] {
-  return [...blocks, { id, ...edit, source: "manual" }];
 }
 
 export function getBlockSplitError(
@@ -254,7 +229,6 @@ export function fuseWithNeighbours(
     sorted.splice(i, 2, {
       ...cur,
       id: next.end === null ? next.id : cur.id,
-      source: next.end === null ? next.source : cur.source,
       end: next.end,
     });
   }
@@ -267,7 +241,6 @@ export function fuseWithNeighbours(
     sorted.splice(i - 1, 2, {
       ...prev,
       id: current.end === null ? current.id : prev.id,
-      source: current.end === null ? current.source : prev.source,
       end: current.end,
     });
   }

@@ -185,9 +185,12 @@ function parsePersistedState(value: unknown): PersistedState | null {
     if (!isBlock(entry)) {
       return null
     }
+    // A legacy source field is dropped: stored Manual Blocks load as live Blocks.
     blocks.push({
-      ...entry,
-      source: (entry as { source?: unknown }).source === 'manual' ? 'manual' : 'live',
+      id: entry.id,
+      labelId: entry.labelId,
+      start: entry.start,
+      end: entry.end,
     })
   }
 
@@ -217,7 +220,7 @@ function isLabel(value: unknown): value is Label {
   )
 }
 
-function isBlock(value: unknown): value is Omit<Block, 'source'> {
+function isBlock(value: unknown): value is Block {
   if (typeof value !== 'object' || value === null) {
     return false
   }

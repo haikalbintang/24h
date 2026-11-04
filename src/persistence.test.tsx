@@ -192,7 +192,7 @@ describe('Persistence', () => {
   })
 })
 
-describe('Block source persistence', () => {
+describe('legacy Block source persistence', () => {
   const documentWith = (blocks: unknown[]) =>
     JSON.stringify({
       schemaVersion: 1,
@@ -204,21 +204,15 @@ describe('Block source persistence', () => {
       theme: 'dark',
     })
 
-  it('keeps the manual source of a stored Block', () => {
+  it('loads a stored Manual Block as a plain Block', () => {
     const state = decodePersistedState(
       documentWith([
         { id: 'block-1', labelId: 'label-1', start: 0, end: 1000, source: 'manual' },
       ]),
     )
 
-    expect(state?.blocks[0].source).toBe('manual')
-  })
-
-  it('treats a stored Block without a source as live', () => {
-    const state = decodePersistedState(
-      documentWith([{ id: 'block-1', labelId: 'label-1', start: 0, end: 1000 }]),
-    )
-
-    expect(state?.blocks[0].source).toBe('live')
+    expect(state?.blocks).toEqual([
+      { id: 'block-1', labelId: 'label-1', start: 0, end: 1000 },
+    ])
   })
 })

@@ -2,13 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   closeActiveBlock,
   createLiveBlock,
-  createManualBlock,
   editBlock as applyBlockEdit,
   fuseWithNeighbours,
   getBlockEditError,
   getBlockRestoreError,
   getBlockSplitError,
-  getManualBlockError,
   splitAtDayBoundaries,
   splitBlock,
 } from "./blocks";
@@ -47,10 +45,6 @@ export interface UseBlocksResult {
     id: BlockId,
     edit: Omit<BlockEdit, "end">,
     end: number | null,
-    bounds: Omit<EditBounds, "now">,
-  ) => string | null;
-  addManualBlock: (
-    edit: BlockEdit & { end: number },
     bounds: Omit<EditBounds, "now">,
   ) => string | null;
   splitBlock: (id: BlockId, at: number) => string | null;
@@ -281,35 +275,6 @@ export function useBlocks(
     [activeLabelId, deletedBlock],
   );
 
-  const addManualBlock = useCallback(
-    (
-      edit: BlockEdit & { end: number },
-      bounds: Omit<EditBounds, "now">,
-    ) => {
-      const at = getNow();
-      const current = splitAtDayBoundaries(blocks, anchor, at);
-      const error = getManualBlockError(
-        current,
-        edit,
-        { ...bounds, now: at },
-        initialState.labels,
-      );
-
-      if (error) {
-        return error;
-      }
-
-      const newId = createBlockId();
-
-      setBlocks(
-        fuseWithNeighbours(createManualBlock(current, newId, edit), newId, anchor),
-      );
-
-      return null;
-    },
-    [anchor, blocks, createBlockId, getNow, initialState.labels],
-  );
-
   const splitBlockAt = useCallback(
     (id: BlockId, splitTime: number) => {
       const at = getNow();
@@ -361,7 +326,6 @@ export function useBlocks(
     keepLabelThroughGap,
     dismissReopenPrompt,
     editBlock,
-    addManualBlock,
     splitBlock: splitBlockAt,
     deleteBlock,
     deleteBlocksByLabel,

@@ -28,21 +28,18 @@ function stateDocument() {
         labelId: 'label-1',
         start: ANCHOR + 1 * HOUR_MS,
         end: ANCHOR + 2 * HOUR_MS,
-        source: 'live',
       },
       {
         id: 'block-2',
         labelId: 'label-1',
         start: ANCHOR + 2 * HOUR_MS,
         end: ANCHOR + 3 * HOUR_MS,
-        source: 'manual',
       },
       {
         id: 'block-3',
         labelId: 'label-1',
         start: ANCHOR + 15 * MINUTE_MS,
         end: null,
-        source: 'live',
       },
     ],
     activeLabelId: 'label-1',
@@ -110,21 +107,18 @@ describe('Export', () => {
           labelId: 'label-1',
           start: ANCHOR + 1 * HOUR_MS,
           end: ANCHOR + 2 * HOUR_MS,
-          source: 'live',
         },
         {
           id: 'block-2',
           labelId: 'label-1',
           start: ANCHOR + 2 * HOUR_MS,
           end: ANCHOR + 3 * HOUR_MS,
-          source: 'manual',
         },
         {
           id: 'block-3',
           labelId: 'label-1',
           start: ANCHOR + 15 * MINUTE_MS,
           end: null,
-          source: 'live',
         },
       ],
       activeLabelId: 'label-1',
@@ -133,7 +127,7 @@ describe('Export', () => {
     })
   })
 
-  it('exports one CSV row per Block with day label, label name, start, end, duration, and source', async () => {
+  it('exports one CSV row per Block with day label, label name, start, end, and duration', async () => {
     const { runtime, user } = setup()
 
     await user.click(screen.getByRole('button', { name: 'Export CSV' }))
@@ -144,10 +138,10 @@ describe('Export', () => {
     expect(call.mimeType).toBe('text/csv')
     expect(call.contents).toBe(
       [
-        'Day label,Label name,Start,End,Duration,Source',
-        `"Mar 8, 2026",Work,${ANCHOR + 15 * MINUTE_MS},,900000,live`,
-        `"Mar 8, 2026",Work,${ANCHOR + 1 * HOUR_MS},${ANCHOR + 2 * HOUR_MS},3600000,live`,
-        `"Mar 8, 2026",Work,${ANCHOR + 2 * HOUR_MS},${ANCHOR + 3 * HOUR_MS},3600000,manual`,
+        'Day label,Label name,Start,End,Duration',
+        `"Mar 8, 2026",Work,${ANCHOR + 15 * MINUTE_MS},,900000`,
+        `"Mar 8, 2026",Work,${ANCHOR + 1 * HOUR_MS},${ANCHOR + 2 * HOUR_MS},3600000`,
+        `"Mar 8, 2026",Work,${ANCHOR + 2 * HOUR_MS},${ANCHOR + 3 * HOUR_MS},3600000`,
       ].join('\n'),
     )
   })
@@ -159,7 +153,7 @@ describe('Export', () => {
 
     const call = runtime.exportSink.calls[0]
 
-    const ongoingRow = `"Mar 8, 2026",Work,${ANCHOR + 15 * MINUTE_MS},,900000,live`
+    const ongoingRow = `"Mar 8, 2026",Work,${ANCHOR + 15 * MINUTE_MS},,900000`
 
     expect(call.contents).toContain(ongoingRow)
   })

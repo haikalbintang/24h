@@ -9,7 +9,7 @@ import {
 } from "./labels";
 import type { Label, LabelColourId, LabelId } from "./labels";
 import BlocksSection from "./BlocksSection";
-import type { BlockEditRequest, ManualBlockRequest } from "./BlocksSection";
+import type { BlockEditRequest } from "./BlocksSection";
 import type { Block } from "./blocks";
 
 interface LabelsSectionProps {
@@ -21,7 +21,6 @@ interface LabelsSectionProps {
   dynamicBlocks: Block[];
   shortcutsEnabled: boolean;
   onEditBlock: (id: string, edit: BlockEditRequest) => string | null;
-  onAddManualBlock: (edit: ManualBlockRequest) => string | null;
   onSplitBlock: (id: string, at: number) => string | null;
   onDeleteBlock: (id: string) => void;
   onSelectLabel: (labelId: LabelId | null) => void;
@@ -45,7 +44,6 @@ export default function LabelsSection({
   dynamicBlocks,
   shortcutsEnabled,
   onEditBlock,
-  onAddManualBlock,
   onSplitBlock,
   onDeleteBlock,
   onSelectLabel,
@@ -184,7 +182,6 @@ export default function LabelsSection({
       dayStart={dayStart}
       dayEnd={dayEnd}
       onEditBlock={onEditBlock}
-      onAddManualBlock={onAddManualBlock}
       onSplitBlock={onSplitBlock}
       onDeleteBlock={onDeleteBlock}
     />
@@ -493,4 +490,3 @@ export default function LabelsSection({
     </section></>
   );
 }
-

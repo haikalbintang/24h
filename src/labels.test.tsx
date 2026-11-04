@@ -361,25 +361,4 @@ describe('Label archive, restore, and undo', () => {
       screen.queryByRole('button', { name: 'Undo' }),
     ).not.toBeInTheDocument()
   })
-
-  it('does not offer an archived label when adding a manual block', async () => {
-    const { user } = setup()
-
-    await createLabel(user, 'Work')
-    await createLabel(user, 'Rest', 'Green')
-    await user.click(screen.getByRole('button', { name: 'Work' }))
-
-    await user.click(screen.getByRole('button', { name: 'Manage labels' }))
-    await user.click(screen.getByRole('button', { name: 'Archive Work' }))
-
-    await user.click(screen.getByRole('button', { name: 'Add Block' }))
-
-    const form = screen.getByRole('form', { name: 'Add manual block' })
-    const options = within(form).getAllByRole('option')
-
-    expect(options.map((option) => option.textContent)).toEqual([
-      'Unaccounted',
-      'Rest',
-    ])
-  })
 })

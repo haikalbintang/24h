@@ -16,7 +16,6 @@ const BLOCKS_CSV_COLUMNS = [
   'Start',
   'End',
   'Duration',
-  'Source',
 ] as const
 
 export function encodePersistedStateJson(state: PersistedState): string {
@@ -58,7 +57,6 @@ export function createBlocksCsv(
         String(block.start),
         end,
         String(duration),
-        block.source,
       ]),
     )
   }

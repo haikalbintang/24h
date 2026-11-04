@@ -120,7 +120,6 @@ export default function App({ runtime }: AppProps) {
     keepLabelThroughGap,
     dismissReopenPrompt,
     editBlock,
-    addManualBlock,
     splitBlock,
     deleteBlock,
     deletedBlock,
@@ -400,12 +399,6 @@ export default function App({ runtime }: AppProps) {
               { dayStart: selectedDay.dayStart, dayEnd: selectedDay.dayEnd }
             )
           }
-          onAddManualBlock={(edit) =>
-            addManualBlock(edit, {
-              dayStart: selectedDay.dayStart,
-              dayEnd: selectedDay.dayEnd,
-            })
-          }
           onSplitBlock={splitBlock}
           onDeleteBlock={(id) => {
             setUndoError(null);
@@ -477,4 +470,3 @@ export default function App({ runtime }: AppProps) {
     </main>
   );
 }
-

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { formatClock, parseClock } from "./day";
 import { getBlockDuration } from "./blocks";
 import type { Block } from "./blocks";
-import { getLabelColour, isLabelArchived } from "./labels";
+import { getLabelColour } from "./labels";
 import type { Label, LabelId } from "./labels";
 
 function Icon({ children }: { children: React.ReactNode }) {
@@ -168,12 +168,6 @@ export interface BlockEditRequest {
   labelId: LabelId;
 }
 
-export interface ManualBlockRequest {
-  start: number;
-  end: number;
-  labelId: LabelId;
-}
-
 interface BlocksSectionProps {
   blocks: Block[];
   labels: Label[];
@@ -181,7 +175,6 @@ interface BlocksSectionProps {
   dayStart: number;
   dayEnd: number;
   onEditBlock: (id: string, edit: BlockEditRequest) => string | null;
-  onAddManualBlock: (edit: ManualBlockRequest) => string | null;
   onSplitBlock: (id: string, at: number) => string | null;
   onDeleteBlock: (id: string) => void;
 }
@@ -193,7 +186,6 @@ export default function BlocksSection({
   dayStart,
   dayEnd,
   onEditBlock,
-  onAddManualBlock,
   onSplitBlock,
   onDeleteBlock,
 }: BlocksSectionProps) {
@@ -201,19 +193,13 @@ export default function BlocksSection({
   const [splittingId, setSplittingId] = useState<string | null>(null);
   const [splitText, setSplitText] = useState("");
   const [splitError, setSplitError] = useState<string | null>(null);
-  const [manualStartText, setManualStartText] = useState("");
-  const [manualEndText, setManualEndText] = useState("");
-  const [manualLabelId, setManualLabelId] = useState<LabelId>("");
-  const [manualError, setManualError] = useState<string | null>(null);
   const [labelId, setLabelId] = useState<LabelId>("");
   const [error, setError] = useState<string | null>(null);
   const [startText, setStartText] = useState("");
   const [endText, setEndText] = useState("");
-  const [isManualOpen, setIsManualOpen] = useState(false);
   const [isBlocksOpen, setIsBlocksOpen] = useState(true);
 
   const labelMap = new Map(labels.map((label) => [label.id, label]));
-  const pickableLabels = labels.filter((label) => !isLabelArchived(label));
 
   const todaysBlocks = blocks
     .filter((block) => block.start >= dayStart && block.start < dayEnd)
@@ -254,37 +240,6 @@ export default function BlocksSection({
     setSplitError(null);
   };
 
-  const addManualBlock = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const startOffset = parseClock(manualStartText);
-    const endOffset = parseClock(manualEndText);
-    const chosenLabelId = manualLabelId || (pickableLabels[0]?.id ?? "");
-
-    if (startOffset === null || endOffset === null) {
-      setManualError("Enter times as HH:MM:SS.");
-      return;
-    }
-
-    if (chosenLabelId === "") {
-      setManualError("Create a label first.");
-      return;
-    }
-
-    const result = onAddManualBlock({
-      start: dayStart + startOffset,
-      end: dayStart + endOffset,
-      labelId: chosenLabelId,
-    });
-
-    if (result) {
-      setManualError(result);
-      return;
-    }
-
-    closeManual();
-  };
-
   const saveBlock = (event: React.FormEvent<HTMLFormElement>, block: Block) => {
     event.preventDefault();
 
@@ -309,14 +264,6 @@ export default function BlocksSection({
 
     setEditingId(null);
     setError(null);
-  };
-
-  const closeManual = () => {
-    setIsManualOpen(false);
-    setManualStartText("");
-    setManualEndText("");
-    setManualLabelId("");
-    setManualError(null);
   };
 
   return (
@@ -346,15 +293,6 @@ export default function BlocksSection({
       </h2>
       {isBlocksOpen ? (
         <div id="blocks-panel" className="grid gap-3">
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={() => setIsManualOpen(true)}
-              className="rounded-lg border border-neutral-700 px-4 py-1.5 text-sm text-neutral-200 hover:border-neutral-500 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
-            >
-              Add Block
-            </button>
-          </div>
           {todaysBlocks.length === 0 ? (
             <p className="text-sm text-neutral-400">No blocks yet.</p>
           ) : (
@@ -396,11 +334,6 @@ export default function BlocksSection({
                       <span className="text-sm font-medium text-neutral-100">
                         {label ? label.name : "Unknown"}
                       </span>
-                      {block.source === "manual" ? (
-                        <span className="rounded border border-neutral-700 px-1.5 py-0.5 text-xs text-neutral-400">
-                          Manual
-                        </span>
-                      ) : null}
                     </div>
                     <div className="flex flex-wrap items-center gap-3 text-sm text-neutral-400">
                       <span>
@@ -557,76 +490,6 @@ export default function BlocksSection({
               })}
             </ul>
           )}
-          {isManualOpen ? (
-            <form
-              id="manual-block-form"
-              aria-label="Add manual block"
-              onSubmit={addManualBlock}
-              className="grid gap-3 rounded-lg border border-neutral-800 bg-neutral-900/40 p-4"
-            >
-              <div className="flex flex-wrap gap-3">
-                <label className="grid gap-1 text-xs text-neutral-400">
-                  New start
-                  <input
-                    autoFocus
-                    value={manualStartText}
-                    aria-invalid={manualError !== null}
-                    onChange={(event) => {
-                      setManualStartText(event.target.value);
-                      setManualError(null);
-                    }}
-                    className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 font-mono text-sm text-neutral-100 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
-                  />
-                </label>
-                <label className="grid gap-1 text-xs text-neutral-400">
-                  New end
-                  <input
-                    value={manualEndText}
-                    aria-invalid={manualError !== null}
-                    onChange={(event) => {
-                      setManualEndText(event.target.value);
-                      setManualError(null);
-                    }}
-                    className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 font-mono text-sm text-neutral-100 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
-                  />
-                </label>
-                <label className="grid gap-1 text-xs text-neutral-400">
-                  Label
-                  <select
-                    value={manualLabelId || (pickableLabels[0]?.id ?? "")}
-                    onChange={(event) => setManualLabelId(event.target.value)}
-                    className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 text-sm text-neutral-100"
-                  >
-                    {pickableLabels.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              {manualError ? (
-                <p role="alert" className="text-sm text-red-400">
-                  {manualError}
-                </p>
-              ) : null}
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  className="rounded-lg bg-neutral-100 px-4 py-1.5 text-sm font-semibold text-neutral-950 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
-                >
-                  Add manual block
-                </button>
-                <button
-                  type="button"
-                  onClick={closeManual}
-                  className="rounded-lg border border-neutral-700 px-4 py-1.5 text-sm text-neutral-200 hover:border-neutral-500 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          ) : null}
         </div>
       ) : null}
     </section>
