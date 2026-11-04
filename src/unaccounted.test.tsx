@@ -46,7 +46,9 @@ const selectedDayTotals = () =>
   screen.getByRole("list", { name: "Selected day totals" });
 
 function storedState(storage: ReturnType<typeof createFakeStorage>) {
-  return JSON.parse(storage.getItem(STATE_STORAGE_KEY) ?? "null") as {
+  const parsed = JSON.parse(storage.getItem(STATE_STORAGE_KEY) ?? "null");
+  const shared = parsed?.shared ?? parsed;
+  return shared as {
     labels: { id: string; name: string; colourId: string; archived?: boolean }[];
     blocks: { id: string; labelId: string; start: number; end: number | null }[];
     activeLabelId: string | null;

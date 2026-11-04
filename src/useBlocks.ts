@@ -107,17 +107,19 @@ export function useBlocks(
           // A switch in the same second would only add a zero-length Block,
           // so relabel the Block that just started instead.
           return next.map((block, index) =>
-            index === openIndex ? { ...block, labelId: targetLabelId } : block,
+            index === openIndex
+              ? { ...block, labelId: targetLabelId, updatedAt: at }
+              : block,
           );
         }
 
         if (openIndex !== -1) {
-          next = closeActiveBlock(next, at);
+          next = closeActiveBlock(next, at, at);
         }
 
         next = [
           ...next,
-          createLiveBlock(createBlockId(), targetLabelId, at),
+          createLiveBlock(createBlockId(), targetLabelId, at, at),
         ];
 
         return next;
@@ -160,12 +162,13 @@ export function useBlocks(
         // boundary does not leave a zero-length tail.
         splitAtDayBoundaries(current, anchor, endedAt - 1),
         endedAt,
+        at,
       );
       const next = splitAtDayBoundaries(closed, anchor, at);
 
       return [
         ...next,
-        createLiveBlock(createBlockId(), UNACCOUNTED_LABEL_ID, at),
+        createLiveBlock(createBlockId(), UNACCOUNTED_LABEL_ID, at, at),
       ];
     });
     setActiveLabelId(UNACCOUNTED_LABEL_ID);
@@ -196,7 +199,12 @@ export function useBlocks(
       }
 
       setBlocks(
-        fuseWithNeighbours(applyRelabel(current, id, labelId), id, anchor),
+        fuseWithNeighbours(
+          applyRelabel(current, id, labelId, at),
+          id,
+          anchor,
+          at,
+        ),
       );
 
       // The active Block keeps running under its new Label.
@@ -231,7 +239,7 @@ export function useBlocks(
         return error;
       }
 
-      setBlocks(splitBlock(current, id, splitTime, createBlockId()));
+      setBlocks(splitBlock(current, id, splitTime, createBlockId(), at));
 
       return null;
     },

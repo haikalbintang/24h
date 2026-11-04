@@ -6,7 +6,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { DAY_MS, getDaySnapshot } from "./day";
-import { getLabelNameError, isUnaccountedLabelId } from "./labels";
+import { getLabelNameError, isUnaccountedLabelId, UNACCOUNTED_LABEL_ID } from "./labels";
 import type { LabelColourId, LabelId } from "./labels";
 import { THEME_DARK, THEME_LIGHT } from "./theme";
 import {
@@ -74,7 +74,7 @@ export default function App({ runtime }: AppProps) {
     loadPersistedState(runtime, runtime.clock.now())
   );
 
-  const anchor = persisted.anchor;
+  const anchor = persisted.shared.anchor;
   const now = useSyncExternalStore(
     runtime.clock.subscribe,
     runtime.clock.now,
@@ -101,7 +101,7 @@ export default function App({ runtime }: AppProps) {
   const nextLabelId = useRef(
     Math.max(
       0,
-      ...persisted.labels.map(
+      ...persisted.shared.labels.map(
         (label) => Number(label.id.slice("label-".length)) || 0
       )
     ) + 1
@@ -122,10 +122,10 @@ export default function App({ runtime }: AppProps) {
     relabelBlock,
     splitBlock,
   } = useBlocks(anchor, now, runtime.clock.now, {
-    blocks: persisted.blocks,
-    labels: persisted.labels,
-    activeLabelId: persisted.activeLabelId,
-    lastSeen: persisted.lastSeen,
+    blocks: persisted.shared.blocks,
+    labels: persisted.shared.labels,
+    activeLabelId: persisted.shared.activeLabelId,
+    lastSeen: persisted.shared.heartbeat,
   });
 
   const archiveUndoVisible =
@@ -135,12 +135,17 @@ export default function App({ runtime }: AppProps) {
     (lastSeenValue: number | null) => {
       savePersistedState(runtime, {
         schemaVersion: STATE_SCHEMA_VERSION,
-        anchor: persisted.anchor,
-        labels: persisted.labels,
-        blocks,
-        activeLabelId,
-        lastSeen: lastSeenValue,
-        theme: persisted.theme,
+        shared: {
+          anchor: persisted.shared.anchor,
+          labels: persisted.shared.labels,
+          blocks,
+          activeLabelId: activeLabelId ?? UNACCOUNTED_LABEL_ID,
+          heartbeat: lastSeenValue,
+        },
+        device: {
+          theme: persisted.device.theme,
+          session: persisted.device.session,
+        },
       });
     },
     [runtime, persisted, blocks, activeLabelId]
@@ -166,7 +171,7 @@ export default function App({ runtime }: AppProps) {
     name: string,
     colourId: LabelColourId
   ): string | null => {
-    const error = getLabelNameError(name, persisted.labels);
+    const error = getLabelNameError(name, persisted.shared.labels);
 
     if (error) {
       return error;
@@ -174,15 +179,19 @@ export default function App({ runtime }: AppProps) {
 
     setPersisted((current) => ({
       ...current,
-      labels: [
-        ...current.labels,
-        {
-          id: `label-${nextLabelId.current++}`,
-          name,
-          colourId,
-          archived: false,
-        },
-      ],
+      shared: {
+        ...current.shared,
+        labels: [
+          ...current.shared.labels,
+          {
+            id: `label-${nextLabelId.current++}`,
+            name,
+            colourId,
+            archived: false,
+            updatedAt: runtime.clock.now(),
+          },
+        ],
+      },
     }));
 
     return null;
@@ -197,7 +206,7 @@ export default function App({ runtime }: AppProps) {
       return "The Unaccounted label cannot be changed.";
     }
 
-    const error = getLabelNameError(name, persisted.labels, labelId);
+    const error = getLabelNameError(name, persisted.shared.labels, labelId);
 
     if (error) {
       return error;
@@ -205,9 +214,14 @@ export default function App({ runtime }: AppProps) {
 
     setPersisted((current) => ({
       ...current,
-      labels: current.labels.map((label) =>
-        label.id === labelId ? { ...label, name, colourId } : label
-      ),
+      shared: {
+        ...current.shared,
+        labels: current.shared.labels.map((label) =>
+          label.id === labelId
+            ? { ...label, name, colourId, updatedAt: runtime.clock.now() }
+            : label
+        ),
+      },
     }));
 
     return null;
@@ -234,9 +248,14 @@ export default function App({ runtime }: AppProps) {
 
     setPersisted((current) => ({
       ...current,
-      labels: current.labels.map((label) =>
-        label.id === labelId ? { ...label, archived: true } : label,
-      ),
+      shared: {
+        ...current.shared,
+        labels: current.shared.labels.map((label) =>
+          label.id === labelId
+            ? { ...label, archived: true, updatedAt: runtime.clock.now() }
+            : label
+        ),
+      },
     }));
   };
 
@@ -248,9 +267,14 @@ export default function App({ runtime }: AppProps) {
     setArchivedUndo(null);
     setPersisted((current) => ({
       ...current,
-      labels: current.labels.map((label) =>
-        label.id === labelId ? { ...label, archived: false } : label,
-      ),
+      shared: {
+        ...current.shared,
+        labels: current.shared.labels.map((label) =>
+          label.id === labelId
+            ? { ...label, archived: false, updatedAt: runtime.clock.now() }
+            : label
+        ),
+      },
     }));
   };
 
@@ -269,9 +293,14 @@ export default function App({ runtime }: AppProps) {
     setArchivedUndo(null);
     setPersisted((current) => ({
       ...current,
-      labels: current.labels.map((label) =>
-        label.id === labelId ? { ...label, archived: false } : label,
-      ),
+      shared: {
+        ...current.shared,
+        labels: current.shared.labels.map((label) =>
+          label.id === labelId
+            ? { ...label, archived: false, updatedAt: runtime.clock.now() }
+            : label
+        ),
+      },
     }));
 
     // Undo restores the label and, if it was active, reactivates it.
@@ -283,14 +312,27 @@ export default function App({ runtime }: AppProps) {
   };
 
   const exportJson = () => {
-    saveJsonExport(runtime, persisted);
+    saveJsonExport(runtime, {
+      schemaVersion: STATE_SCHEMA_VERSION,
+      shared: {
+        anchor: persisted.shared.anchor,
+        labels: persisted.shared.labels,
+        blocks,
+        activeLabelId: activeLabelId ?? UNACCOUNTED_LABEL_ID,
+        heartbeat: lastSeen,
+      },
+      device: {
+        theme: persisted.device.theme,
+        session: persisted.device.session,
+      },
+    });
   };
 
   const exportCsv = () => {
     saveBlocksExport(
       runtime,
-      persisted.blocks,
-      persisted.labels,
+      blocks,
+      persisted.shared.labels,
       anchor,
       now,
     );
@@ -299,14 +341,18 @@ export default function App({ runtime }: AppProps) {
   const toggleTheme = () => {
     setPersisted((current) => ({
       ...current,
-      theme: current.theme === THEME_DARK ? THEME_LIGHT : THEME_DARK,
+      device: {
+        ...current.device,
+        theme:
+          current.device.theme === THEME_DARK ? THEME_LIGHT : THEME_DARK,
+      },
     }));
   };
 
   return (
     <main
       className="min-h-screen bg-neutral-950 text-neutral-100"
-      data-theme={persisted.theme}
+      data-theme={persisted.device.theme}
     >
       <div
         className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-6 py-8 sm:px-10"
@@ -321,10 +367,10 @@ export default function App({ runtime }: AppProps) {
               type="button"
               onClick={toggleTheme}
               aria-label="Toggle theme"
-              aria-pressed={persisted.theme === THEME_LIGHT}
+              aria-pressed={persisted.device.theme === THEME_LIGHT}
               className={themeToggleButtonClass}
             >
-              {persisted.theme === THEME_DARK ? <SunIcon /> : <MoonIcon />}
+              {persisted.device.theme === THEME_DARK ? <SunIcon /> : <MoonIcon />}
             </button>
             <select
               aria-label="Day"
@@ -383,7 +429,7 @@ export default function App({ runtime }: AppProps) {
           now={now}
           dayStart={selectedDay.dayStart}
           dayEnd={selectedDay.dayEnd}
-          labels={persisted.labels}
+          labels={persisted.shared.labels}
           activeLabelId={activeLabelId}
           dynamicBlocks={dynamicBlocks}
           shortcutsEnabled={!reopenPromptOpen}
@@ -397,7 +443,7 @@ export default function App({ runtime }: AppProps) {
           onRestoreLabel={restoreLabel}
         />
         <TotalsSection
-          labels={persisted.labels}
+          labels={persisted.shared.labels}
           activeLabelId={activeLabelId}
           blocks={blocks}
           anchor={anchor}
@@ -433,7 +479,7 @@ export default function App({ runtime }: AppProps) {
       {reopenPromptOpen ? (
         <ReopenPrompt
           labelName={
-            persisted.labels.find((label) => label.id === activeLabelId)
+            persisted.shared.labels.find((label) => label.id === activeLabelId)
               ?.name ?? null
           }
           onEnd={endBlockAtLastSeen}

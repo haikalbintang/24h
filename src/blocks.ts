@@ -8,14 +8,16 @@ export interface Block {
   labelId: LabelId;
   start: number;
   end: number | null;
+  updatedAt?: number;
 }
 
 export function createLiveBlock(
   id: BlockId,
   labelId: LabelId,
   start: number,
+  updatedAt: number = start,
 ): Block {
-  return { id, labelId, start, end: null };
+  return { id, labelId, start, end: null, updatedAt };
 }
 
 export function getNextBlockId(blocks: Block[]): BlockId {
@@ -65,12 +67,13 @@ export function splitAtDayBoundaries(
 
     const labelId = result[index].labelId;
 
-    result[index] = { ...result[index], end: dayEnd };
+    result[index] = { ...result[index], end: dayEnd, updatedAt: dayEnd };
     result.push({
       id: `${result[index].id}-${dayEnd}`,
       labelId,
       start: dayEnd,
       end: null,
+      updatedAt: dayEnd,
     });
     index = result.length - 1;
   }
@@ -78,10 +81,22 @@ export function splitAtDayBoundaries(
   return didSplit ? result : blocks;
 }
 
-export function closeActiveBlock(blocks: Block[], atTime: number): Block[] {
+export function closeActiveBlock(
+  blocks: Block[],
+  atTime: number,
+  updatedAt?: number,
+): Block[] {
   return blocks.map((block) =>
     block.end === null
-      ? { ...block, end: Math.max(block.start, atTime) }
+      ? {
+        ...block,
+        end: Math.max(block.start, atTime),
+        ...(updatedAt !== undefined
+          ? { updatedAt }
+          : block.updatedAt !== undefined
+            ? { updatedAt: atTime }
+            : {}),
+      }
       : block,
   );
 }
@@ -90,9 +105,12 @@ export function relabelBlock(
   blocks: Block[],
   id: BlockId,
   labelId: LabelId,
+  updatedAt?: number,
 ): Block[] {
   return blocks.map((block) =>
-    block.id === id ? { ...block, labelId } : block,
+    block.id === id
+      ? { ...block, labelId, ...(updatedAt !== undefined ? { updatedAt } : {}) }
+      : block,
   );
 }
 
@@ -120,12 +138,30 @@ export function splitBlock(
   id: BlockId,
   at: number,
   newId: BlockId,
+  updatedAt?: number,
 ): Block[] {
   return blocks.flatMap((block) =>
     block.id === id
       ? [
-        { ...block, end: at },
-        { ...block, id: newId, start: at },
+        {
+          ...block,
+          end: at,
+          ...(updatedAt !== undefined
+            ? { updatedAt }
+            : block.updatedAt !== undefined
+              ? { updatedAt }
+              : {}),
+        },
+        {
+          ...block,
+          id: newId,
+          start: at,
+          ...(updatedAt !== undefined
+            ? { updatedAt }
+            : block.updatedAt !== undefined
+              ? { updatedAt }
+              : {}),
+        },
       ]
       : [block],
   );
@@ -135,6 +171,7 @@ export function fuseWithNeighbours(
   blocks: Block[],
   id: BlockId,
   anchor: number,
+  updatedAt?: number,
 ): Block[] {
   const sorted = [...blocks].sort((a, b) => a.start - b.start);
   const i = sorted.findIndex((block) => block.id === id);
@@ -162,6 +199,11 @@ export function fuseWithNeighbours(
       ...cur,
       id: next.end === null ? next.id : cur.id,
       end: next.end,
+      ...(updatedAt !== undefined
+        ? { updatedAt }
+        : cur.updatedAt !== undefined
+          ? { updatedAt: Math.max(cur.updatedAt, next.updatedAt ?? 0) }
+          : {}),
     });
   }
 
@@ -174,6 +216,11 @@ export function fuseWithNeighbours(
       ...prev,
       id: current.end === null ? current.id : prev.id,
       end: current.end,
+      ...(updatedAt !== undefined
+        ? { updatedAt }
+        : prev.updatedAt !== undefined
+          ? { updatedAt: Math.max(prev.updatedAt, current.updatedAt ?? 0) }
+          : {}),
     });
   }
 

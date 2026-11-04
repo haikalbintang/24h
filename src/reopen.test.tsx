@@ -44,12 +44,19 @@ const reopenDialog = () => screen.getByRole('dialog')
 const endBlockButton = () => screen.getByRole('button', { name: 'End Block' })
 const keepLabelButton = () => screen.getByRole('button', { name: 'Keep Label' })
 
-const readStoredState = (storage: ReturnType<typeof createFakeStorage>) =>
-  JSON.parse(storage.getItem(STATE_STORAGE_KEY) ?? 'null') as {
+const readStoredState = (storage: { getItem(key: string): string | null }) => {
+  const raw = storage.getItem(STATE_STORAGE_KEY)
+  const parsed = JSON.parse(raw ?? 'null')
+  const shared = parsed?.shared ?? parsed
+  return {
+    ...shared,
+    lastSeen: shared?.heartbeat ?? shared?.lastSeen,
+  } as {
     blocks: { end: number | null }[]
     activeLabelId: string | null
     lastSeen: number
   }
+}
 
 describe('Heartbeat and reopen prompt', () => {
   describe('Heartbeat', () => {
@@ -105,10 +112,7 @@ describe('Heartbeat and reopen prompt', () => {
         // effects flush: a real unload never gets to run those effects.
         let storedDuringPageHide: number | null = null
         const observePageHide = () => {
-          const stored = JSON.parse(
-            runtime.storage.getItem(STATE_STORAGE_KEY) ?? 'null',
-          ) as { lastSeen: number }
-          storedDuringPageHide = stored.lastSeen
+          storedDuringPageHide = readStoredState(runtime.storage).lastSeen
         }
         window.addEventListener('pagehide', observePageHide)
 
@@ -121,9 +125,7 @@ describe('Heartbeat and reopen prompt', () => {
 
         expect(storedDuringPageHide).toBe(at('2026-03-08T05:30:45.000Z'))
 
-        const stored = JSON.parse(
-          runtime.storage.getItem(STATE_STORAGE_KEY) ?? 'null',
-        ) as { lastSeen: number }
+        const stored = readStoredState(runtime.storage)
 
         expect(stored.lastSeen).toBe(at('2026-03-08T05:30:45.000Z'))
 
@@ -151,9 +153,7 @@ describe('Heartbeat and reopen prompt', () => {
           document.dispatchEvent(new Event('visibilitychange'))
         })
 
-        const stored = JSON.parse(
-          runtime.storage.getItem(STATE_STORAGE_KEY) ?? 'null',
-        ) as { lastSeen: number }
+        const stored = readStoredState(runtime.storage)
 
         expect(stored.lastSeen).toBe(at('2026-03-08T05:30:45.000Z'))
 

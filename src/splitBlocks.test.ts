@@ -33,6 +33,13 @@ describe("splitting Blocks", () => {
     ]);
   });
 
+  it("sets updatedAt on split blocks when provided", () => {
+    const updatedAt = 35 * MINUTE_MS;
+    const result = splitBlock([liveBlock], "block-1", 35 * MINUTE_MS, "block-2", updatedAt);
+    expect(result[0].updatedAt).toBe(updatedAt);
+    expect(result[1].updatedAt).toBe(updatedAt);
+  });
+
   it("keeps the second half of the active Block running", () => {
     const active: Block = { ...liveBlock, end: null };
 

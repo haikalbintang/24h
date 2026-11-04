@@ -19,18 +19,20 @@ export interface Label {
   name: string
   colourId: LabelColourId
   archived?: boolean
+  updatedAt?: number
 }
 
 export const UNACCOUNTED_LABEL_ID: LabelId = 'label-unaccounted'
 export const UNACCOUNTED_LABEL_NAME = 'Unaccounted'
 export const UNACCOUNTED_LABEL_COLOUR_ID: LabelColourId = 'grey'
 
-export function createUnaccountedLabel(): Label {
+export function createUnaccountedLabel(updatedAt: number = 0): Label {
   return {
     id: UNACCOUNTED_LABEL_ID,
     name: UNACCOUNTED_LABEL_NAME,
     colourId: UNACCOUNTED_LABEL_COLOUR_ID,
     archived: false,
+    updatedAt,
   }
 }
 

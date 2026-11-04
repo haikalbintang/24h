@@ -89,41 +89,50 @@ describe('Export', () => {
     expect(call.mimeType).toBe('application/json')
 
     expect(JSON.parse(call.contents)).toEqual({
-      schemaVersion: 1,
-      anchor: ANCHOR,
-      labels: [
-        {
-          id: 'label-unaccounted',
-          name: 'Unaccounted',
-          colourId: 'grey',
-          archived: false,
-        },
-        { id: 'label-1', name: 'Work', colourId: 'blue', archived: false },
-        { id: 'label-2', name: 'Rest', colourId: 'green', archived: true },
-      ],
-      blocks: [
-        {
-          id: 'block-1',
-          labelId: 'label-1',
-          start: ANCHOR + 1 * HOUR_MS,
-          end: ANCHOR + 2 * HOUR_MS,
-        },
-        {
-          id: 'block-2',
-          labelId: 'label-1',
-          start: ANCHOR + 2 * HOUR_MS,
-          end: ANCHOR + 3 * HOUR_MS,
-        },
-        {
-          id: 'block-3',
-          labelId: 'label-1',
-          start: ANCHOR + 15 * MINUTE_MS,
-          end: null,
-        },
-      ],
-      activeLabelId: 'label-1',
-      lastSeen: NOW,
-      theme: 'dark',
+      schemaVersion: 2,
+      shared: {
+        anchor: ANCHOR,
+        labels: [
+          {
+            id: 'label-unaccounted',
+            name: 'Unaccounted',
+            colourId: 'grey',
+            archived: false,
+            updatedAt: ANCHOR,
+          },
+          { id: 'label-1', name: 'Work', colourId: 'blue', archived: false, updatedAt: ANCHOR },
+          { id: 'label-2', name: 'Rest', colourId: 'green', archived: true, updatedAt: ANCHOR },
+        ],
+        blocks: [
+          {
+            id: 'block-1',
+            labelId: 'label-1',
+            start: ANCHOR + 1 * HOUR_MS,
+            end: ANCHOR + 2 * HOUR_MS,
+            updatedAt: ANCHOR,
+          },
+          {
+            id: 'block-2',
+            labelId: 'label-1',
+            start: ANCHOR + 2 * HOUR_MS,
+            end: ANCHOR + 3 * HOUR_MS,
+            updatedAt: ANCHOR,
+          },
+          {
+            id: 'block-3',
+            labelId: 'label-1',
+            start: ANCHOR + 15 * MINUTE_MS,
+            end: null,
+            updatedAt: ANCHOR,
+          },
+        ],
+        activeLabelId: 'label-1',
+        heartbeat: NOW,
+      },
+      device: {
+        theme: 'dark',
+        session: null,
+      },
     })
   })
 
