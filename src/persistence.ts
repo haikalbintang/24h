@@ -32,6 +32,8 @@ export interface SharedState {
 export interface DeviceState {
   theme: ThemeId
   session: AccountSession | null
+  /** The Account whose first sign-in was last resolved on this device. */
+  syncedAccountId?: string
 }
 
 export interface PersistedDocumentV2 {
@@ -246,6 +248,9 @@ function parsePersistedStateV2(
       device: {
         theme: device.theme,
         session,
+        ...(typeof device.syncedAccountId === 'string'
+          ? { syncedAccountId: device.syncedAccountId }
+          : {}),
       },
     },
     now,

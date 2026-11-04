@@ -16,7 +16,8 @@ import {
   type PersistedState,
   type SharedState,
 } from "./persistence";
-import { SyncCoordinator } from "./sync";
+import { SyncCoordinator, type FirstSignInChoice } from "./sync";
+import FirstSignInPrompt from "./FirstSignInPrompt";
 import LabelsSection from "./LabelsSection";
 import { saveBlocksExport, saveJsonExport } from "./export";
 import TotalsSection from "./TotalsSection";
@@ -154,15 +155,40 @@ export default function App({ runtime }: AppProps) {
   const currentSharedRef = useRef<SharedState>(currentShared);
   const session = persisted.device.session;
   const sessionRef = useRef(session);
+  const syncedAccountIdRef = useRef<string | null>(
+    persisted.device.syncedAccountId ?? null
+  );
+  const anchorRef = useRef(persisted.shared.anchor);
+  const pendingFirstSignInRef = useRef<
+    ((choice: FirstSignInChoice) => void) | null
+  >(null);
+  const [firstSignIn, setFirstSignIn] = useState<{
+    resolve: (choice: FirstSignInChoice) => void;
+  } | null>(null);
 
   useEffect(() => {
     currentSharedRef.current = currentShared;
     sessionRef.current = session;
+    syncedAccountIdRef.current = persisted.device.syncedAccountId ?? null;
   });
 
   const applyMergedState = useCallback(
     (merged: SharedState) => {
       isSyncApplyingRef.current = true;
+      // Day indices count from the Anchor, so a changed Anchor rebases a picked Day.
+      const anchorShift = Math.round(
+        (anchorRef.current - merged.anchor) / DAY_MS
+      );
+      anchorRef.current = merged.anchor;
+      if (anchorShift !== 0) {
+        setPickedDayIndex((picked) => {
+          if (picked === null) {
+            return null;
+          }
+          const rebased = picked + anchorShift;
+          return rebased < 0 ? null : rebased;
+        });
+      }
       setPersisted((current) => ({
         ...current,
         shared: {
@@ -196,6 +222,32 @@ export default function App({ runtime }: AppProps) {
         sync: runtime.sync,
         sharedRef: currentSharedRef,
         sessionRef,
+        getSyncedAccountId: () => syncedAccountIdRef.current,
+        onAccountSynced: (accountId) => {
+          if (syncedAccountIdRef.current === accountId) {
+            return;
+          }
+          syncedAccountIdRef.current = accountId;
+          // Device state only: it must not queue a push of Shared state.
+          isSyncApplyingRef.current = true;
+          setPersisted((current) => ({
+            ...current,
+            device: { ...current.device, syncedAccountId: accountId },
+          }));
+          setTimeout(() => {
+            isSyncApplyingRef.current = false;
+          }, 0);
+        },
+        onFirstSignIn: () =>
+          new Promise<FirstSignInChoice>((resolve) => {
+            const settle = (choice: FirstSignInChoice) => {
+              pendingFirstSignInRef.current = null;
+              setFirstSignIn(null);
+              resolve(choice);
+            };
+            pendingFirstSignInRef.current = settle;
+            setFirstSignIn({ resolve: settle });
+          }),
         onRemoteMerged: (merged) => {
           currentSharedRef.current = merged;
           applyMergedState(merged);
@@ -249,6 +301,8 @@ export default function App({ runtime }: AppProps) {
       void coordinator.pull();
     } else {
       coordinator.destroy();
+      // A pending choice is abandoned on sign-out; the coordinator ignores it.
+      pendingFirstSignInRef.current?.("merge");
     }
   }, [coordinator, session]);
 
@@ -267,8 +321,7 @@ export default function App({ runtime }: AppProps) {
           heartbeat: lastSeenValue,
         },
         device: {
-          theme: persisted.device.theme,
-          session: persisted.device.session,
+          ...persisted.device,
         },
       });
     },
@@ -507,7 +560,7 @@ export default function App({ runtime }: AppProps) {
     >
       <div
         className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-6 py-8 sm:px-10"
-        inert={reopenPromptOpen || accountOpen}
+        inert={reopenPromptOpen || accountOpen || firstSignIn !== null}
       >
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-800 pb-5">
           <h1 className="text-xs font-semibold tracking-[0.28em] text-neutral-500 uppercase">
@@ -590,7 +643,7 @@ export default function App({ runtime }: AppProps) {
           labels={persisted.shared.labels}
           activeLabelId={activeLabelId}
           dynamicBlocks={dynamicBlocks}
-          shortcutsEnabled={!reopenPromptOpen && !accountOpen}
+          shortcutsEnabled={!reopenPromptOpen && !accountOpen && firstSignIn === null}
           onRelabelBlock={relabelBlock}
           onSplitBlock={splitBlock}
           onSelectLabel={selectLabel}
@@ -643,6 +696,13 @@ export default function App({ runtime }: AppProps) {
           onEnd={endBlockAtLastSeen}
           onKeep={keepLabelThroughGap}
           onDismiss={dismissReopenPrompt}
+        />
+      ) : null}
+
+      {firstSignIn ? (
+        <FirstSignInPrompt
+          email={persisted.device.session?.email ?? null}
+          onResolve={firstSignIn.resolve}
         />
       ) : null}
 

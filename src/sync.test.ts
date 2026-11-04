@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { UNACCOUNTED_LABEL_ID, createUnaccountedLabel } from './labels'
 import type { SharedState } from './persistence'
-import { mergeSharedState, SyncCoordinator } from './sync'
+import { hasUserData, mergeSharedState, resolveFirstSignIn, SyncCoordinator } from './sync'
 import { createFakeSyncAdapter } from './test/sync'
 
 describe('mergeSharedState', () => {
@@ -305,5 +305,62 @@ describe('SyncCoordinator', () => {
 
     expect(coordinator.getBaseVersion()).toBe(5)
     expect(currentState.labels).toHaveLength(3) // Unaccounted + Local + Remote
+  })
+})
+
+describe('first sign-in resolution', () => {
+  const remote: SharedState = {
+    anchor: 5000,
+    labels: [
+      createUnaccountedLabel(100),
+      { id: 'label-r', name: 'Remote', colourId: 'blue', updatedAt: 200 },
+    ],
+    blocks: [{ id: 'block-r', labelId: 'label-r', start: 5000, end: null, updatedAt: 300 }],
+    activeLabelId: 'label-r',
+    heartbeat: 300,
+  }
+  const local: SharedState = {
+    anchor: 1000,
+    labels: [
+      createUnaccountedLabel(100),
+      { id: 'label-l', name: 'Local', colourId: 'green', updatedAt: 150 },
+    ],
+    blocks: [{ id: 'block-l', labelId: 'label-l', start: 1000, end: null, updatedAt: 160 }],
+    activeLabelId: 'label-l',
+    heartbeat: 160,
+  }
+
+  it('merge keeps the earliest Anchor and both sides data', () => {
+    const resolved = resolveFirstSignIn(local, remote, 'merge')
+
+    expect(resolved.anchor).toBe(1000)
+    expect(resolved.labels.map((l) => l.id)).toEqual(['label-unaccounted', 'label-l', 'label-r'])
+    expect(resolved.blocks.map((b) => b.id).sort()).toEqual(['block-l', 'block-r'])
+  })
+
+  it('merge picks the remote Anchor when it is earlier', () => {
+    const resolved = resolveFirstSignIn({ ...local, anchor: 9000 }, remote, 'merge')
+
+    expect(resolved.anchor).toBe(5000)
+  })
+
+  it('replace keeps the remote Shared state and discards local', () => {
+    expect(resolveFirstSignIn(local, remote, 'replace')).toEqual(remote)
+  })
+
+  it('treats a fresh Unaccounted-only state as having no user data', () => {
+    const fresh: SharedState = {
+      anchor: 1000,
+      labels: [createUnaccountedLabel(1000)],
+      blocks: [
+        { id: 'block-1', labelId: UNACCOUNTED_LABEL_ID, start: 1000, end: null, updatedAt: 1000 },
+      ],
+      activeLabelId: UNACCOUNTED_LABEL_ID,
+      heartbeat: 1000,
+    }
+
+    expect(hasUserData(fresh)).toBe(false)
+    expect(hasUserData(local)).toBe(true)
+    expect(hasUserData({ ...fresh, blocks: [...fresh.blocks, ...local.blocks] })).toBe(true)
   })
 })

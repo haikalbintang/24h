@@ -145,8 +145,38 @@ export function mergeSharedState(
   }
 }
 
+export type FirstSignInChoice = 'merge' | 'replace'
+
+/** True when Shared state holds anything beyond a fresh Unaccounted-only start. */
+export function hasUserData(shared: SharedState): boolean {
+  return (
+    shared.labels.some((label) => !isUnaccountedLabelId(label.id)) ||
+    shared.blocks.length > 1
+  )
+}
+
+/**
+ * Resolves the first sign-in into a non-empty Account. Merge combines both
+ * sides under the earliest Anchor (Day indices derive from the Anchor, so they
+ * rebase with it); Replace keeps the remote Shared state only.
+ */
+export function resolveFirstSignIn(
+  local: SharedState,
+  remote: SharedState,
+  choice: FirstSignInChoice,
+): SharedState {
+  return choice === 'merge' ? mergeSharedState(local, remote) : remote
+}
+
 export interface SyncCoordinatorOptions {
   sync: SyncAdapter
+  getSyncedAccountId?: () => string | null
+  onAccountSynced?: (accountId: string) => void
+  onFirstSignIn?: (
+    local: SharedState,
+    remote: SharedState,
+  ) => Promise<FirstSignInChoice>
+
   getSharedState?: () => SharedState
   setSharedState?: (next: SharedState) => void
   getSession?: () => AccountSession | null
@@ -168,9 +198,18 @@ export class SyncCoordinator {
   private debounceTimer: ReturnType<typeof setTimeout> | null = null
   private debounceMs: number
   private inFlight: boolean = false
+  private resolvedAccountId: string | null = null
+  private getSyncedAccountId: () => string | null
+  private onAccountSynced: (accountId: string) => void
+  private onFirstSignIn:
+    | ((local: SharedState, remote: SharedState) => Promise<FirstSignInChoice>)
+    | undefined
 
   constructor(options: SyncCoordinatorOptions) {
     this.sync = options.sync
+    this.getSyncedAccountId = options.getSyncedAccountId ?? (() => null)
+    this.onAccountSynced = options.onAccountSynced ?? (() => {})
+    this.onFirstSignIn = options.onFirstSignIn
     this.getSharedState = options.sharedRef
       ? () => options.sharedRef!.current
       : (options.getSharedState ?? (() => { throw new Error('shared state not provided') }))
@@ -233,25 +272,69 @@ export class SyncCoordinator {
       return
     }
 
-    if (this.queued) {
+    if (this.queued && !this.needsFirstSync(session.accountId)) {
       await this.flush()
       return
     }
 
     this.inFlight = true
+    let pushAfter = false
     try {
       const result = await this.sync.pull(session.accountId)
-      if (result.status === 'success' && result.document) {
-        if (this.baseVersion === null || result.document.version > this.baseVersion) {
-          const currentShared = this.getSharedState()
-          const merged = mergeSharedState(currentShared, result.document.shared)
-          this.baseVersion = result.document.version
-          this.setSharedState(merged)
-        }
+      if (result.status !== 'success') {
+        return
       }
+
+      const remote = result.document
+      if (remote === null) {
+        this.markSynced(session.accountId)
+      } else if (
+        this.needsFirstSync(session.accountId) &&
+        hasUserData(this.getSharedState()) &&
+        hasUserData(remote.shared)
+      ) {
+        const choice = await this.onFirstSignIn!(this.getSharedState(), remote.shared)
+        if (this.getSession()?.accountId !== session.accountId) {
+          return
+        }
+        // Local edits may land while the choice is pending; resolve against the latest.
+        const resolved = resolveFirstSignIn(this.getSharedState(), remote.shared, choice)
+        this.baseVersion = remote.version
+        this.setSharedState(resolved)
+        this.markSynced(session.accountId)
+        if (choice === 'merge') {
+          // The merged result differs from the remote, so it must be pushed.
+          this.queued = true
+          this.queuedSince = this.queuedSince ?? Date.now()
+        }
+      } else if (this.baseVersion === null || remote.version > this.baseVersion) {
+        const merged = mergeSharedState(this.getSharedState(), remote.shared)
+        this.baseVersion = remote.version
+        this.setSharedState(merged)
+        this.markSynced(session.accountId)
+      } else {
+        this.markSynced(session.accountId)
+      }
+      pushAfter = this.queued
     } finally {
       this.inFlight = false
     }
+
+    if (pushAfter) {
+      await this.flush()
+    }
+  }
+
+  private needsFirstSync(accountId: string): boolean {
+    if (!this.onFirstSignIn) {
+      return false
+    }
+    return (this.resolvedAccountId ?? this.getSyncedAccountId()) !== accountId
+  }
+
+  private markSynced(accountId: string): void {
+    this.resolvedAccountId = accountId
+    this.onAccountSynced(accountId)
   }
 
   async flush(): Promise<void> {
@@ -270,6 +353,12 @@ export class SyncCoordinator {
     }
 
     if (this.inFlight) {
+      return
+    }
+
+    if (this.needsFirstSync(session.accountId)) {
+      // Never push into an Account before its first sign-in has been resolved.
+      await this.pull()
       return
     }
 
@@ -312,5 +401,6 @@ export class SyncCoordinator {
     this.queued = false
     this.queuedSince = null
     this.baseVersion = null
+    this.resolvedAccountId = null
   }
 }
