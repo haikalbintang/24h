@@ -13,6 +13,26 @@ export interface Block {
   source: BlockSource;
 }
 
+export function createLiveBlock(
+  id: BlockId,
+  labelId: LabelId,
+  start: number,
+): Block {
+  return { id, labelId, start, end: null, source: "live" };
+}
+
+export function getNextBlockId(blocks: Block[]): BlockId {
+  const highest = Math.max(
+    0,
+    ...blocks.map(
+      (block) =>
+        Number(block.id.slice("block-".length).split("-")[0]) || 0,
+    ),
+  )
+
+  return `block-${highest + 1}`;
+}
+
 export function getBlockDuration(block: Block, now: number): number {
   return Math.max(0, (block.end ?? now) - block.start);
 }

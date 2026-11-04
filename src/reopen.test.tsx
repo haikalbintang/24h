@@ -213,7 +213,7 @@ describe('Heartbeat and reopen prompt', () => {
       expect(blockItems()[0]).toHaveTextContent(/ongoing/i)
     })
 
-    it('ends the Block at the last heartbeat and returns to Unlabeled when the default is chosen', async () => {
+    it('ends the Block at the last heartbeat and returns to Unaccounted when the default is chosen', async () => {
       const storage = createFakeStorage()
       const first = setup(at('2026-03-08T05:30:00.000Z'), storage)
       const user = first.user
@@ -233,18 +233,20 @@ describe('Heartbeat and reopen prompt', () => {
       await secondUser.click(endBlockButton())
 
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-      expect(status()).toHaveTextContent('Unlabeled')
+      expect(status()).toHaveTextContent('Unaccounted')
 
       const items = blockItems()
-      expect(items).toHaveLength(1)
+      expect(items).toHaveLength(2)
       expect(items[0]).toHaveTextContent('Work')
       expect(items[0]).toHaveTextContent('00:30:00')
       expect(items[0]).toHaveTextContent('00:31:00')
       expect(items[0]).not.toHaveTextContent(/ongoing/i)
+      expect(items[1]).toHaveTextContent('Unaccounted')
+      expect(items[1]).toHaveTextContent(/ongoing/i)
 
       const stored = readStoredState(storage)
       expect(stored.blocks[0]?.end).toBe(at('2026-03-08T05:31:00.000Z'))
-      expect(stored.activeLabelId).toBeNull()
+      expect(stored.activeLabelId).toBe('label-unaccounted')
       expect(dayClock()).toHaveTextContent('03:30:00')
     })
 
@@ -309,7 +311,7 @@ describe('Heartbeat and reopen prompt', () => {
       await second.user.keyboard('{Enter}')
 
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-      expect(status()).toHaveTextContent('Unlabeled')
+      expect(status()).toHaveTextContent('Unaccounted')
       expect(readStoredState(storage).blocks[0]?.end).toBe(
         at('2026-03-08T05:31:00.000Z'),
       )
@@ -356,8 +358,12 @@ describe('Heartbeat and reopen prompt', () => {
       await secondUser.click(endBlockButton())
 
       const stored = readStoredState(storage)
-      expect(stored.blocks).toHaveLength(1)
+      expect(stored.blocks).toHaveLength(2)
       expect(stored.blocks[0]?.end).toBe(at('2026-03-08T05:00:00.000Z'))
+      expect(stored.blocks[1]).toMatchObject({
+        labelId: 'label-unaccounted',
+        end: null,
+      })
     })
 
     it('splits the ended Block at Day boundaries crossed before the last heartbeat', async () => {
@@ -382,9 +388,13 @@ describe('Heartbeat and reopen prompt', () => {
       await secondUser.click(endBlockButton())
 
       const stored = readStoredState(storage)
-      expect(stored.blocks).toHaveLength(2)
+      expect(stored.blocks).toHaveLength(3)
       expect(stored.blocks[0]?.end).toBe(at('2026-03-08T05:00:00.000Z'))
       expect(stored.blocks[1]?.end).toBe(at('2026-03-08T05:01:00.000Z'))
+      expect(stored.blocks[2]).toMatchObject({
+        labelId: 'label-unaccounted',
+        end: null,
+      })
     })
 
     it('keeps the label through the gap and extends the Block to the present', async () => {

@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import ColourRadioGroup from "./ColourRadioGroup";
-import { getLabelColour, isLabelArchived, LABEL_COLOURS } from "./labels";
+import {
+  compareLabels,
+  getLabelColour,
+  isLabelArchived,
+  isUnaccountedLabel,
+  LABEL_COLOURS,
+} from "./labels";
 import type { Label, LabelColourId, LabelId } from "./labels";
 import BlocksSection from "./BlocksSection";
 import type { BlockEditRequest, ManualBlockRequest } from "./BlocksSection";
@@ -68,14 +74,12 @@ export default function LabelsSection({
     () =>
       [...labels]
         .filter((label) => !isLabelArchived(label))
-        .sort((a, b) =>
-          a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
-        ),
+        .sort(compareLabels),
     [labels],
   );
-  const managedLabels = [...labels].sort((a, b) =>
-    a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
-  );
+  const managedLabels = [...labels]
+    .filter((label) => !isUnaccountedLabel(label))
+    .sort(compareLabels);
   const activeLabel =
     sortedLabels.find((label) => label.id === activeLabelId) ?? null;
 
@@ -231,7 +235,7 @@ export default function LabelsSection({
                 {activeLabel.name}
               </>
             ) : (
-              "Unlabeled"
+              "Unaccounted"
             )}
           </p>
           {activeLabel ? (

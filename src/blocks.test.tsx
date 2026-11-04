@@ -89,7 +89,7 @@ describe("Blocks", () => {
     expect(items[1]).toHaveTextContent(/ongoing/i);
   });
 
-  it("closes the Block and adds no Block when deselecting", async () => {
+  it("closes the Block and starts an Unaccounted Block when deselecting", async () => {
     const { runtime, user } = setup();
 
     await createLabel(user, "Work");
@@ -99,10 +99,12 @@ describe("Blocks", () => {
 
     expect(
       screen.getByRole("status", { name: "Active label" }),
-    ).toHaveTextContent("Unlabeled");
-    expect(blockItems()).toHaveLength(1);
+    ).toHaveTextContent("Unaccounted");
+    expect(blockItems()).toHaveLength(2);
     expect(blockItems()[0]).toHaveTextContent("00:00:05");
     expect(blockItems()[0]).not.toHaveTextContent(/ongoing/i);
+    expect(blockItems()[1]).toHaveTextContent("Unaccounted");
+    expect(blockItems()[1]).toHaveTextContent(/ongoing/i);
   });
 
   it("lists Blocks chronologically with label, start, end, and duration", async () => {
@@ -382,12 +384,12 @@ describe("Block editing validation, reassign, delete, undo", () => {
       within(screen.getByRole("menu", { name: "Block actions" })).getByRole("menuitem", { name: "Delete" }),
     );
 
-    expect(blockItems()).toHaveLength(1);
+    expect(blockItems()).toHaveLength(2);
     expect(dayTotals()).toHaveTextContent("00:10:00");
 
     await user.click(screen.getByRole("button", { name: "Undo" }));
 
-    expect(blockItems()).toHaveLength(2);
+    expect(blockItems()).toHaveLength(3);
     expect(blockItems()[1]).toHaveTextContent("00:40:00 – 00:50:00");
   });
 
@@ -403,7 +405,7 @@ describe("Block editing validation, reassign, delete, undo", () => {
     act(() => runtime.clock.advance(6 * SECOND_MS));
 
     expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
-    expect(blockItems()).toHaveLength(1);
+    expect(blockItems()).toHaveLength(2);
   });
 
   it("refuses an undo when the space has been filled", async () => {
@@ -421,7 +423,7 @@ describe("Block editing validation, reassign, delete, undo", () => {
     expect(screen.getByRole("status", { name: "Undo" })).toHaveTextContent(
       /cannot undo/i,
     );
-    expect(blockItems()).toHaveLength(1);
+    expect(blockItems()).toHaveLength(2);
   });
 
   it("edits Blocks on a past Day", async () => {
@@ -510,7 +512,7 @@ describe("Manual Blocks and splitting", () => {
 
     await addManualBlock(user, { start: "00:10:00", end: "00:20:00", label: "Work" });
 
-    expect(blockItems()).toHaveLength(3);
+    expect(blockItems()).toHaveLength(4);
     expect(blockItems()[0]).toHaveTextContent("00:10:00 – 00:20:00");
     expect(blockItems()[0]).toHaveTextContent("Work");
     expect(blockItems()[0]).toHaveTextContent(/manual/i);
@@ -524,7 +526,7 @@ describe("Manual Blocks and splitting", () => {
     await addManualBlock(user, { start: "00:25:00", end: "00:35:00" });
 
     expect(screen.getByRole("alert")).toHaveTextContent(/overlap/i);
-    expect(blockItems()).toHaveLength(2);
+    expect(blockItems()).toHaveLength(3);
   });
 
   it("only offers labels that exist when adding a manual Block", async () => {
@@ -537,7 +539,11 @@ describe("Manual Blocks and splitting", () => {
       within(form).getByRole("combobox", { name: "Label" }),
     ).getAllByRole("option");
 
-    expect(options.map((option) => option.textContent)).toEqual(["Work", "Rest"]);
+    expect(options.map((option) => option.textContent)).toEqual([
+      "Unaccounted",
+      "Work",
+      "Rest",
+    ]);
   });
 
   it("splits a Block at a time inside it", async () => {
@@ -545,7 +551,7 @@ describe("Manual Blocks and splitting", () => {
 
     await splitBlock(user, 0, "00:35:00");
 
-    expect(blockItems()).toHaveLength(3);
+    expect(blockItems()).toHaveLength(4);
     expect(blockItems()[0]).toHaveTextContent("00:30:00 – 00:35:00");
     expect(blockItems()[1]).toHaveTextContent("00:35:00 – 00:40:00");
     expect(blockItems()[1]).toHaveTextContent("Work");
@@ -558,6 +564,6 @@ describe("Manual Blocks and splitting", () => {
     await splitBlock(user, 0, "00:45:00");
 
     expect(screen.getByRole("alert")).toHaveTextContent(/inside/i);
-    expect(blockItems()).toHaveLength(2);
+    expect(blockItems()).toHaveLength(3);
   });
 });

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   closeActiveBlock,
+  createLiveBlock,
   createManualBlock,
   editBlock as applyBlockEdit,
   fuseWithNeighbours,
@@ -13,6 +14,7 @@ import {
 } from "./blocks";
 import type { Block, BlockEdit, BlockId, EditBounds } from "./blocks";
 import { HEARTBEAT_INTERVAL_MS, isReopenGap } from "./heartbeat";
+import { UNACCOUNTED_LABEL_ID } from "./labels";
 import type { Label, LabelId } from "./labels";
 
 export interface UseBlocksInitialState {
@@ -66,7 +68,7 @@ export function useBlocks(
 ): UseBlocksResult {
   const [blocks, setBlocks] = useState<Block[]>(initialState.blocks);
   const [activeLabelId, setActiveLabelId] = useState<LabelId | null>(
-    initialState.activeLabelId,
+    initialState.activeLabelId ?? UNACCOUNTED_LABEL_ID,
   );
   const [lastSeen, setLastSeen] = useState<number | null>(
     initialState.lastSeen,
@@ -111,7 +113,9 @@ export function useBlocks(
 
   const selectLabel = useCallback(
     (labelId: LabelId | null) => {
-      if (labelId !== null && labelId === activeLabelId) {
+      const targetLabelId = labelId ?? UNACCOUNTED_LABEL_ID;
+
+      if (targetLabelId === activeLabelId) {
         return;
       }
 
@@ -119,27 +123,28 @@ export function useBlocks(
 
       setBlocks((current) => {
         let next = splitAtDayBoundaries(current, anchor, at);
+        const openIndex = next.findIndex((block) => block.end === null);
 
-        if (next.some((block) => block.end === null)) {
+        if (openIndex !== -1 && next[openIndex].start === at) {
+          // A switch in the same second would only add a zero-length Block,
+          // so relabel the Block that just started instead.
+          return next.map((block, index) =>
+            index === openIndex ? { ...block, labelId: targetLabelId } : block,
+          );
+        }
+
+        if (openIndex !== -1) {
           next = closeActiveBlock(next, at);
         }
 
-        if (labelId !== null) {
-          next = [
-            ...next,
-            {
-              id: createBlockId(),
-              labelId,
-              start: at,
-              end: null,
-              source: "live",
-            },
-          ];
-        }
+        next = [
+          ...next,
+          createLiveBlock(createBlockId(), targetLabelId, at),
+        ];
 
         return next;
       });
-      setActiveLabelId(labelId);
+      setActiveLabelId(targetLabelId);
       setLastSeen(at);
     },
     [activeLabelId, anchor, createBlockId, getNow],
@@ -171,18 +176,24 @@ export function useBlocks(
     const at = getNow();
     const endedAt = lastSeen ?? at;
 
-    setBlocks((current) =>
-      closeActiveBlock(
+    setBlocks((current) => {
+      const closed = closeActiveBlock(
         // Split just before the end so a Block ending exactly on a Day
         // boundary does not leave a zero-length tail.
         splitAtDayBoundaries(current, anchor, endedAt - 1),
         endedAt,
-      ),
-    );
-    setActiveLabelId(null);
+      );
+      const next = splitAtDayBoundaries(closed, anchor, at);
+
+      return [
+        ...next,
+        createLiveBlock(createBlockId(), UNACCOUNTED_LABEL_ID, at),
+      ];
+    });
+    setActiveLabelId(UNACCOUNTED_LABEL_ID);
     setLastSeen(at);
     setReopenDismissed(false);
-  }, [anchor, getNow, lastSeen]);
+  }, [anchor, createBlockId, getNow, lastSeen]);
 
   const keepLabelThroughGap = useCallback(() => {
     const at = getNow();
@@ -261,7 +272,7 @@ export function useBlocks(
         current.filter((block) => block.labelId !== labelId),
       );
       if (activeLabelId === labelId) {
-        setActiveLabelId(null);
+        setActiveLabelId(UNACCOUNTED_LABEL_ID);
       }
       if (deletedBlock?.block.labelId === labelId) {
         setDeletedBlock(null);

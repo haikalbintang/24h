@@ -1,6 +1,13 @@
+import { createLiveBlock, getNextBlockId } from './blocks'
 import type { Block } from './blocks'
 import { isReopenGap } from './heartbeat'
-import { getLabelColour } from './labels'
+import {
+  createUnaccountedLabel,
+  getLabelColour,
+  isLabelArchived,
+  UNACCOUNTED_LABEL_ID,
+  UNACCOUNTED_LABEL_NAME,
+} from './labels'
 import type { Label, LabelColourId, LabelId } from './labels'
 import { localMidnightBefore } from './day'
 import type { Runtime } from './runtime'
@@ -20,14 +27,95 @@ export interface PersistedState {
 }
 
 export function createFreshPersistedState(now: number): PersistedState {
+  const blocks: Block[] = [
+    createLiveBlock(getNextBlockId([]), UNACCOUNTED_LABEL_ID, now),
+  ]
+
   return {
     schemaVersion: STATE_SCHEMA_VERSION,
     anchor: localMidnightBefore(now),
-    labels: [],
-    blocks: [],
-    activeLabelId: null,
+    labels: [createUnaccountedLabel()],
+    blocks,
+    activeLabelId: UNACCOUNTED_LABEL_ID,
     lastSeen: now,
     theme: THEME_DARK,
+  }
+}
+
+export function migratePersistedState(
+  state: PersistedState,
+  now: number,
+): PersistedState {
+  const idMap = new Map<LabelId, LabelId>()
+  const labels: Label[] = [createUnaccountedLabel()]
+
+  for (const label of state.labels) {
+    const isBuiltIn =
+      label.id === UNACCOUNTED_LABEL_ID ||
+      label.name.trim().toLowerCase() === UNACCOUNTED_LABEL_NAME.toLowerCase()
+
+    if (isBuiltIn) {
+      if (label.id !== UNACCOUNTED_LABEL_ID) {
+        idMap.set(label.id, UNACCOUNTED_LABEL_ID)
+      }
+      continue
+    }
+
+    labels.push(label)
+  }
+
+  const blocks = state.blocks.map((block) => {
+    const labelId = idMap.get(block.labelId) ?? block.labelId
+    return labelId === block.labelId ? block : { ...block, labelId }
+  })
+
+  const mappedActiveLabelId =
+    state.activeLabelId === null
+      ? null
+      : (idMap.get(state.activeLabelId) ?? state.activeLabelId)
+
+  // A running Block is the strongest evidence of what is active.
+  const openBlock = blocks.find((block) => block.end === null)
+  const openLabel = openBlock
+    ? labels.find((label) => label.id === openBlock.labelId)
+    : undefined
+
+  let activeLabelId = mappedActiveLabelId
+
+  if (openLabel !== undefined && !isLabelArchived(openLabel)) {
+    activeLabelId = openLabel.id
+  }
+
+  if (
+    activeLabelId === null ||
+    !labels.some(
+      (label) => label.id === activeLabelId && !isLabelArchived(label),
+    )
+  ) {
+    activeLabelId = UNACCOUNTED_LABEL_ID
+  }
+
+  return ensureOpenBlock(
+    { ...state, labels, blocks, activeLabelId },
+    now,
+  )
+}
+
+function ensureOpenBlock(state: PersistedState, now: number): PersistedState {
+  if (state.blocks.some((block) => block.end === null)) {
+    return state
+  }
+
+  const labelId = state.activeLabelId ?? UNACCOUNTED_LABEL_ID
+
+  return {
+    ...state,
+    blocks: [
+      ...state.blocks,
+      createLiveBlock(getNextBlockId(state.blocks), labelId, now),
+    ],
+    activeLabelId: labelId,
+    lastSeen: now,
   }
 }
 
@@ -173,7 +261,10 @@ function advanceLastSeenWithinSilentWindow(
 export function loadPersistedState(runtime: Runtime, now: number): PersistedState {
   const restored = decodePersistedState(runtime.storage.getItem(STATE_STORAGE_KEY))
 
-  const state = restored ?? createFreshPersistedState(now)
+  const state =
+    restored === null
+      ? createFreshPersistedState(now)
+      : migratePersistedState(restored, now)
 
   return advanceLastSeenWithinSilentWindow(state, now)
 }

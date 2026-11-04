@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { DAY_MS, formatClock } from "./day";
-import { getLabelColour } from "./labels";
+import { getLabelColour, isUnaccountedLabelId } from "./labels";
 import type { Block } from "./blocks";
 import type { Label, LabelId } from "./labels";
 import {
@@ -59,11 +59,13 @@ export default function TotalsSection(props: TotalsSectionProps) {
       : (props.blocks.find((block) => block.end === null)?.labelId ?? null);
 
   // Sort labels descending by total duration
-  const sortedLabels = [...props.labels].sort((a, b) => {
-    const totalA = totals.get(a.id) ?? 0;
-    const totalB = totals.get(b.id) ?? 0;
-    return totalB - totalA;
-  });
+  const sortedLabels = props.labels
+    .filter((label) => !isUnaccountedLabelId(label.id))
+    .sort((a, b) => {
+      const totalA = totals.get(a.id) ?? 0;
+      const totalB = totals.get(b.id) ?? 0;
+      return totalB - totalA;
+    });
 
   const pieBackground = (() => {
     const stops: string[] = [];

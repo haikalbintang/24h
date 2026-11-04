@@ -1,5 +1,6 @@
 import { DAY_MS } from "./day";
 import type { Block } from "./blocks";
+import { isUnaccountedLabelId } from "./labels";
 import type { LabelId } from "./labels";
 
 export interface DayTotals {
@@ -52,6 +53,9 @@ export function accountedMsForDay(
 ): number {
   let total = 0;
   for (const block of blocksInDay(blocks, dayStart, dayEnd)) {
+    if (isUnaccountedLabelId(block.labelId)) {
+      continue;
+    }
     total += clippedBlockMs(block, dayStart, dayEnd, now);
   }
   return total;
@@ -66,6 +70,10 @@ export function labelTotalsForDay(
   const totals = new Map<LabelId, number>();
 
   for (const block of blocksInDay(blocks, dayStart, dayEnd)) {
+    if (isUnaccountedLabelId(block.labelId)) {
+      continue;
+    }
+
     const ms = clippedBlockMs(block, dayStart, dayEnd, now);
     totals.set(block.labelId, (totals.get(block.labelId) ?? 0) + ms);
   }

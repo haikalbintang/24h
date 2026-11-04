@@ -113,8 +113,9 @@ describe("Totals", () => {
     const items = within(timeline()).getAllByRole("listitem");
     const segments = items.filter((item) => item.hasAttribute("data-label"));
 
-    expect(segments).toHaveLength(1);
+    expect(segments).toHaveLength(2);
     expect(segments[0]).toHaveAttribute("data-label", "label-1");
+    expect(segments[1]).toHaveAttribute("data-label", "label-unaccounted");
     expect(selectedDayTotalItems()[1]).toHaveTextContent(
       "Unaccounted: 00:30:00"
     );

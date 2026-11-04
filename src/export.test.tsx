@@ -95,6 +95,12 @@ describe('Export', () => {
       schemaVersion: 1,
       anchor: ANCHOR,
       labels: [
+        {
+          id: 'label-unaccounted',
+          name: 'Unaccounted',
+          colourId: 'grey',
+          archived: false,
+        },
         { id: 'label-1', name: 'Work', colourId: 'blue', archived: false },
         { id: 'label-2', name: 'Rest', colourId: 'green', archived: true },
       ],

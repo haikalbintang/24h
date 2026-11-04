@@ -7,6 +7,7 @@ export const LABEL_COLOURS = [
   { id: 'blue', name: 'Blue', value: '#3b82f6' },
   { id: 'violet', name: 'Violet', value: '#a855f7' },
   { id: 'pink', name: 'Pink', value: '#ec4899' },
+  { id: 'grey', name: 'Grey', value: '#737373' },
 ] as const
 
 export type LabelColourId = (typeof LABEL_COLOURS)[number]['id']
@@ -20,8 +21,41 @@ export interface Label {
   archived?: boolean
 }
 
+export const UNACCOUNTED_LABEL_ID: LabelId = 'label-unaccounted'
+export const UNACCOUNTED_LABEL_NAME = 'Unaccounted'
+export const UNACCOUNTED_LABEL_COLOUR_ID: LabelColourId = 'grey'
+
+export function createUnaccountedLabel(): Label {
+  return {
+    id: UNACCOUNTED_LABEL_ID,
+    name: UNACCOUNTED_LABEL_NAME,
+    colourId: UNACCOUNTED_LABEL_COLOUR_ID,
+    archived: false,
+  }
+}
+
+export function isUnaccountedLabelId(labelId: LabelId | null): boolean {
+  return labelId === UNACCOUNTED_LABEL_ID
+}
+
+export function isUnaccountedLabel(label: Label): boolean {
+  return isUnaccountedLabelId(label.id)
+}
+
 export function isLabelArchived(label: Label): boolean {
   return label.archived ?? false
+}
+
+export function compareLabels(a: Label, b: Label): number {
+  if (isUnaccountedLabel(a)) {
+    return isUnaccountedLabel(b) ? 0 : 1
+  }
+
+  if (isUnaccountedLabel(b)) {
+    return -1
+  }
+
+  return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
 }
 
 export function getLabelColour(colourId: LabelColourId) {

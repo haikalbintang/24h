@@ -43,15 +43,17 @@ const blockItems = () => within(blocksList()).getAllByRole('listitem')
 const dayTotals = () => screen.getByRole('list', { name: 'Selected day totals' })
 
 describe('Labels', () => {
-  it('starts Unlabeled with no labels on first launch', () => {
+  it('starts with the built-in Unaccounted label on first launch', () => {
     setup()
 
     expect(
       screen.getByRole('status', { name: 'Active label' }),
-    ).toHaveTextContent('Unlabeled')
-    expect(screen.getByText('No labels yet.')).toBeInTheDocument()
+    ).toHaveTextContent('Unaccounted')
     const list = screen.getByRole('list', { name: 'Labels' })
-    expect(within(list).getAllByRole('listitem')).toHaveLength(1)
+    expect(within(list).getAllByRole('listitem')).toHaveLength(2)
+    expect(
+      within(list).getByRole('button', { name: 'Unaccounted' }),
+    ).toBeInTheDocument()
     expect(
       within(list).getByRole('button', { name: 'New label' }),
     ).toBeInTheDocument()
@@ -66,20 +68,22 @@ describe('Labels', () => {
     const list = screen.getByRole('list', { name: 'Labels' })
     const items = within(list).getAllByRole('listitem')
 
-    expect(items).toHaveLength(3)
+    expect(items).toHaveLength(4)
     expect(within(items[0]).getByRole('button', { name: 'Rest' }))
       .toHaveAccessibleDescription('Green')
     expect(within(items[1]).getByRole('button', { name: 'Work' }))
       .toHaveAccessibleDescription('Blue')
+    expect(within(items[2]).getByRole('button', { name: 'Unaccounted' }))
+      .toBeInTheDocument()
     expect(
-      within(items[2]).getByRole('button', { name: 'New label' }),
+      within(items[3]).getByRole('button', { name: 'New label' }),
     ).toBeInTheDocument()
     expect(
       screen.getByRole('status', { name: 'Active label' }),
-    ).toHaveTextContent('Unlabeled')
+    ).toHaveTextContent('Unaccounted')
   })
 
-  it('activates a label on tap and deselects to Unlabeled on a second tap', async () => {
+  it('activates a label on tap and deselects to Unaccounted on a second tap', async () => {
     const { user } = setup()
 
     await createLabel(user, 'Work', 'Blue')
@@ -102,7 +106,7 @@ describe('Labels', () => {
 
     await user.click(rest)
 
-    expect(activeLabel).toHaveTextContent('Unlabeled')
+    expect(activeLabel).toHaveTextContent('Unaccounted')
     expect(rest).toHaveAttribute('aria-pressed', 'false')
   })
 
@@ -158,7 +162,12 @@ describe('Labels', () => {
     await createLabel(user, '   ')
 
     expect(screen.getByRole('alert')).toHaveTextContent('Enter a label name.')
-    expect(screen.getByText('No labels yet.')).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Unaccounted' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Work' }),
+    ).not.toBeInTheDocument()
   })
 
   it('rejects a duplicate label name regardless of case and spacing', async () => {
@@ -174,7 +183,7 @@ describe('Labels', () => {
       within(screen.getByRole('list', { name: 'Labels' })).getAllByRole(
         'button',
       ),
-    ).toHaveLength(2)
+    ).toHaveLength(3)
   })
 
   it('renames a label while keeping it active and in place', async () => {
@@ -275,11 +284,12 @@ describe('Labels', () => {
 
 describe('Label archive, restore, and undo', () => {
   it('hides an archived label from the picker while keeping its history and totals', async () => {
-    const { user } = setup()
+    const { runtime, user } = setup()
 
     await createLabel(user, 'Work')
     await createLabel(user, 'Rest', 'Green')
     await user.click(screen.getByRole('button', { name: 'Work' }))
+    act(() => runtime.clock.advance(SECOND_MS))
     await user.click(screen.getByRole('button', { name: 'Rest' }))
 
     await user.click(screen.getByRole('button', { name: 'Manage labels' }))
@@ -309,7 +319,7 @@ describe('Label archive, restore, and undo', () => {
     expect(status()).toHaveTextContent('Work')
   })
 
-  it('archives the active label and returns to Unlabeled', async () => {
+  it('archives the active label and returns to Unaccounted', async () => {
     const { user } = setup()
 
     await createLabel(user, 'Work')
@@ -318,7 +328,7 @@ describe('Label archive, restore, and undo', () => {
     await user.click(screen.getByRole('button', { name: 'Manage labels' }))
     await user.click(screen.getByRole('button', { name: 'Archive Work' }))
 
-    expect(status()).toHaveTextContent('Unlabeled')
+    expect(status()).toHaveTextContent('Unaccounted')
     expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument()
   })
 
@@ -367,6 +377,9 @@ describe('Label archive, restore, and undo', () => {
     const form = screen.getByRole('form', { name: 'Add manual block' })
     const options = within(form).getAllByRole('option')
 
-    expect(options.map((option) => option.textContent)).toEqual(['Rest'])
+    expect(options.map((option) => option.textContent)).toEqual([
+      'Unaccounted',
+      'Rest',
+    ])
   })
 })

@@ -74,7 +74,11 @@ describe("Day navigation", () => {
     await user.click(screen.getByRole("button", { name: "Work" }));
     act(() => runtime.clock.advance(DAY_MS));
 
-    expect(screen.getByText("No blocks yet.")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("list", { name: "Blocks" })).getAllByRole(
+        "listitem"
+      )
+    ).toHaveLength(1);
 
     await user.selectOptions(picker(), "Mar 8, 2026");
 
@@ -82,8 +86,9 @@ describe("Day navigation", () => {
     const blocks = within(
       screen.getByRole("list", { name: "Blocks" })
     ).getAllByRole("listitem");
-    expect(blocks).toHaveLength(1);
+    expect(blocks).toHaveLength(2);
     expect(blocks[0]).toHaveTextContent("Work");
+    expect(blocks[1]).toHaveTextContent("Unaccounted");
     expect(
       within(
         screen.getByRole("list", { name: "Selected day totals" })

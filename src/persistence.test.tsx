@@ -65,7 +65,10 @@ describe('Persistence', () => {
       schemaVersion: 1,
       theme: 'dark',
     })
-    expect(stored.labels).toHaveLength(1)
+    expect(stored.labels).toHaveLength(2)
+    expect(stored.labels).toContainEqual(
+      expect.objectContaining({ id: 'label-unaccounted', name: 'Unaccounted' }),
+    )
     expect(stored.blocks).toHaveLength(1)
     expect(stored.blocks[0]).toMatchObject({ labelId: 'label-1', end: null })
     expect(stored.activeLabelId).toBe('label-1')
@@ -104,7 +107,7 @@ describe('Persistence', () => {
 
     const items = blockItems()
 
-    expect(items).toHaveLength(2)
+    expect(items).toHaveLength(3)
     expect(items[0]).toHaveTextContent('Work')
     expect(items[0]).toHaveTextContent('00:30:10')
     expect(items[0]).not.toHaveTextContent(/ongoing/i)
@@ -112,10 +115,13 @@ describe('Persistence', () => {
     expect(items[1]).toHaveTextContent('Rest')
     expect(items[1]).not.toHaveTextContent(/ongoing/i)
 
-    expect(status()).toHaveTextContent('Unlabeled')
+    expect(items[2]).toHaveTextContent('Unaccounted')
+    expect(items[2]).toHaveTextContent(/ongoing/i)
+
+    expect(status()).toHaveTextContent('Unaccounted')
   })
 
-  it('closes an open Block at last-seen and starts Unlabeled after a reload', async () => {
+  it('closes an open Block at last-seen and starts Unaccounted after a reload', async () => {
     const storage = createFakeStorage()
     const firstRuntime = createTestRuntime(
       at('2026-03-08T05:30:00.000Z'),
@@ -139,14 +145,16 @@ describe('Persistence', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'End Block' }))
 
-    expect(status()).toHaveTextContent('Unlabeled')
+    expect(status()).toHaveTextContent('Unaccounted')
 
     const items = blockItems()
 
-    expect(items).toHaveLength(1)
+    expect(items).toHaveLength(2)
     expect(items[0]).toHaveTextContent('Work')
     expect(items[0]).toHaveTextContent('00:31:00')
     expect(items[0]).not.toHaveTextContent(/ongoing/i)
+    expect(items[1]).toHaveTextContent('Unaccounted')
+    expect(items[1]).toHaveTextContent(/ongoing/i)
   })
 
   it('falls back to a fresh state when the stored document is corrupt', () => {
@@ -158,8 +166,10 @@ describe('Persistence', () => {
     expect(
       screen.getByRole('timer', { name: 'Day clock' }),
     ).toHaveTextContent('00:30:00')
-    expect(screen.getByText('No labels yet.')).toBeInTheDocument()
-    expect(status()).toHaveTextContent('Unlabeled')
+    expect(
+      screen.getByRole('button', { name: 'Unaccounted' }),
+    ).toBeInTheDocument()
+    expect(status()).toHaveTextContent('Unaccounted')
   })
 
   it('restores the saved theme after a reload', () => {

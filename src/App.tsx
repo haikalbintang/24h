@@ -6,7 +6,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { DAY_MS, getDaySnapshot } from "./day";
-import { getLabelNameError } from "./labels";
+import { getLabelNameError, isUnaccountedLabelId } from "./labels";
 import type { LabelColourId, LabelId } from "./labels";
 import { THEME_DARK, THEME_LIGHT } from "./theme";
 import {
@@ -198,6 +198,10 @@ export default function App({ runtime }: AppProps) {
     name: string,
     colourId: LabelColourId
   ): string | null => {
+    if (isUnaccountedLabelId(labelId)) {
+      return "The Unaccounted label cannot be changed.";
+    }
+
     const error = getLabelNameError(name, persisted.labels, labelId);
 
     if (error) {
@@ -215,6 +219,10 @@ export default function App({ runtime }: AppProps) {
   };
 
   const archiveLabel = (labelId: LabelId) => {
+    if (isUnaccountedLabelId(labelId)) {
+      return;
+    }
+
     const wasActive = activeLabelId === labelId;
 
     setArchivedUndo({
@@ -224,7 +232,7 @@ export default function App({ runtime }: AppProps) {
     });
 
     // Archiving the active label closes the current Block and returns to
-    // Unlabeled; past Blocks keep their identity either way.
+    // Unaccounted; past Blocks keep their identity either way.
     if (wasActive) {
       selectLabel(null);
     }
@@ -238,6 +246,10 @@ export default function App({ runtime }: AppProps) {
   };
 
   const restoreLabel = (labelId: LabelId) => {
+    if (isUnaccountedLabelId(labelId)) {
+      return;
+    }
+
     setArchivedUndo(null);
     setPersisted((current) => ({
       ...current,
