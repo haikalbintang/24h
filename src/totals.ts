@@ -1,7 +1,7 @@
 import { DAY_MS } from "./day";
 import type { Block } from "./blocks";
-import { isUnaccountedLabelId } from "./labels";
-import type { LabelId } from "./labels";
+import { isLabelArchived, isUnaccountedLabelId } from "./labels";
+import type { Label, LabelId } from "./labels";
 
 export interface DayTotals {
   dayIndex: number;
@@ -13,6 +13,16 @@ export interface TimelineSegment {
   labelId: LabelId | null;
   start: number;
   end: number;
+}
+
+function getArchivedLabelIds(labels: Label[]): Set<LabelId> {
+  const set = new Set<LabelId>();
+  for (const label of labels) {
+    if (isLabelArchived(label)) {
+      set.add(label.id);
+    }
+  }
+  return set;
 }
 
 export function dayBounds(anchor: number, dayIndex: number) {
@@ -49,11 +59,13 @@ export function accountedMsForDay(
   blocks: Block[],
   dayStart: number,
   dayEnd: number,
-  now: number
+  now: number,
+  labels: Label[]
 ): number {
+  const archivedLabelIds = getArchivedLabelIds(labels);
   let total = 0;
   for (const block of blocksInDay(blocks, dayStart, dayEnd)) {
-    if (isUnaccountedLabelId(block.labelId)) {
+    if (isUnaccountedLabelId(block.labelId) || archivedLabelIds.has(block.labelId)) {
       continue;
     }
     total += clippedBlockMs(block, dayStart, dayEnd, now);
@@ -65,12 +77,14 @@ export function labelTotalsForDay(
   blocks: Block[],
   dayStart: number,
   dayEnd: number,
-  now: number
+  now: number,
+  labels: Label[]
 ): Map<LabelId, number> {
+  const archivedLabelIds = getArchivedLabelIds(labels);
   const totals = new Map<LabelId, number>();
 
   for (const block of blocksInDay(blocks, dayStart, dayEnd)) {
-    if (isUnaccountedLabelId(block.labelId)) {
+    if (isUnaccountedLabelId(block.labelId) || archivedLabelIds.has(block.labelId)) {
       continue;
     }
 
@@ -85,12 +99,13 @@ export function unaccountedMsForDay(
   blocks: Block[],
   dayStart: number,
   dayEnd: number,
-  now: number
+  now: number,
+  labels: Label[]
 ): number {
   const elapsed = elapsedMsForDay(dayStart, dayEnd, now);
   return Math.max(
     0,
-    elapsed - accountedMsForDay(blocks, dayStart, dayEnd, now)
+    elapsed - accountedMsForDay(blocks, dayStart, dayEnd, now, labels)
   );
 }
 
@@ -98,7 +113,8 @@ export function sevenDayTotals(
   blocks: Block[],
   anchor: number,
   selectedDayIndex: number,
-  now: number
+  now: number,
+  labels: Label[]
 ): DayTotals[] {
   const result: DayTotals[] = [];
 
@@ -108,8 +124,8 @@ export function sevenDayTotals(
 
     result.push({
       dayIndex,
-      totals: labelTotalsForDay(blocks, dayStart, dayEnd, now),
-      unaccounted: unaccountedMsForDay(blocks, dayStart, dayEnd, now),
+      totals: labelTotalsForDay(blocks, dayStart, dayEnd, now, labels),
+      unaccounted: unaccountedMsForDay(blocks, dayStart, dayEnd, now, labels),
     });
   }
 
@@ -120,9 +136,12 @@ export function timelineSegmentsForDay(
   blocks: Block[],
   dayStart: number,
   dayEnd: number,
-  now: number
+  now: number,
+  labels: Label[]
 ): TimelineSegment[] {
+  const archivedLabelIds = getArchivedLabelIds(labels);
   const segments = blocksInDay(blocks, dayStart, dayEnd)
+    .filter((block) => !archivedLabelIds.has(block.labelId))
     .map((block) => ({
       labelId: block.labelId,
       start: Math.max(block.start, dayStart),

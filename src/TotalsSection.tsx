@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { DAY_MS, formatClock } from "./day";
-import { getLabelColour, isUnaccountedLabelId } from "./labels";
+import { getLabelColour, isLabelArchived, isUnaccountedLabelId } from "./labels";
 import type { Block } from "./blocks";
 import type { Label, LabelId } from "./labels";
 import {
@@ -27,18 +27,21 @@ export default function TotalsSection(props: TotalsSectionProps) {
     props.dayStart,
     props.dayEnd,
     props.now,
+    props.labels,
   );
   const unaccounted = unaccountedMsForDay(
     props.blocks,
     props.dayStart,
     props.dayEnd,
     props.now,
+    props.labels,
   );
   const segments = timelineSegmentsForDay(
     props.blocks,
     props.dayStart,
     props.dayEnd,
     props.now,
+    props.labels,
   );
   const selectedDayIndex = Math.round((props.dayStart - props.anchor) / DAY_MS);
   const seven = sevenDayTotals(
@@ -46,6 +49,7 @@ export default function TotalsSection(props: TotalsSectionProps) {
     props.anchor,
     selectedDayIndex,
     props.now,
+    props.labels,
   );
   const futureStart = Math.min(props.now, props.dayEnd);
   const future = futureStart < props.dayEnd;
@@ -60,7 +64,7 @@ export default function TotalsSection(props: TotalsSectionProps) {
 
   // Sort labels descending by total duration
   const sortedLabels = props.labels
-    .filter((label) => !isUnaccountedLabelId(label.id))
+    .filter((label) => !isUnaccountedLabelId(label.id) && !isLabelArchived(label))
     .sort((a, b) => {
       const totalA = totals.get(a.id) ?? 0;
       const totalB = totals.get(b.id) ?? 0;

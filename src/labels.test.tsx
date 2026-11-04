@@ -283,7 +283,7 @@ describe('Labels', () => {
 })
 
 describe('Label archive, restore, and undo', () => {
-  it('hides an archived label from the picker while keeping its history and totals', async () => {
+  it('hides an archived label from the picker and totals while keeping its history on blocks', async () => {
     const { runtime, user } = setup()
 
     await createLabel(user, 'Work')
@@ -300,7 +300,8 @@ describe('Label archive, restore, and undo', () => {
     ).not.toBeInTheDocument()
     expect(blockItems()).toHaveLength(2)
     expect(blockItems()[0]).toHaveTextContent('Work')
-    expect(dayTotals()).toHaveTextContent('Work:')
+    expect(dayTotals()).not.toHaveTextContent('Work:')
+    expect(dayTotals()).toHaveTextContent('Unaccounted:')
   })
 
   it('restore makes an archived label selectable again', async () => {

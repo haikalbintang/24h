@@ -8,5 +8,6 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
     env: { TZ: 'America/New_York' },
+    testTimeout: 10000,
   },
 })

@@ -24,7 +24,7 @@ async function createLabel(
   colour = "Blue"
 ) {
   // The create-label form lives behind the "New label" toggle.
-  await user.click(screen.getByRole("button", { name: "New label" }))
+  await user.click(screen.getByRole("button", { name: "New label" }));
 
   const form = screen.getByRole("form", { name: "Create label" });
 
@@ -46,6 +46,11 @@ const timeline = () => screen.getByRole("list", { name: "Timeline" });
 
 const selectedDayTotalItems = () =>
   within(selectedDayTotals()).getAllByRole("listitem");
+
+const pieChart = () =>
+  screen.getByRole("img", { name: "Selected day pie chart" });
+
+const blocks = () => screen.getByRole("list", { name: "Blocks" });
 
 describe("Totals", () => {
   it("shows the selected day totals and the Unaccounted total", async () => {
@@ -134,5 +139,52 @@ describe("Totals", () => {
 
     expect(future).toBeDefined();
     expect(future).toHaveAttribute("data-future", "true");
+  });
+
+  it("hides archived labels from Selected day legend, pie, seven day totals, and timeline while keeping them on blocks", async () => {
+    const { runtime, user } = setup(at("2026-03-08T05:00:00.000Z"));
+
+    await createLabel(user, "Work", "Blue");
+    await createLabel(user, "Rest", "Green");
+
+    // 00:00 - 00:30 Work (30 min)
+    await user.click(screen.getByRole("button", { name: "Work" }));
+    act(() => runtime.clock.advance(30 * MINUTE_MS));
+
+    // 00:30 - 01:00 Rest (30 min)
+    await user.click(screen.getByRole("button", { name: "Rest" }));
+    act(() => runtime.clock.advance(30 * MINUTE_MS));
+
+    // Archive Work
+    await user.click(screen.getByRole("button", { name: "Manage labels" }));
+    await user.click(screen.getByRole("button", { name: "Archive Work" }));
+
+    // Selected day legend: Work is absent, Rest is present, Unaccounted is 30m (Work's time folded in)
+    expect(selectedDayTotals()).not.toHaveTextContent("Work:");
+    expect(selectedDayTotals()).toHaveTextContent("Rest: 00:30:00");
+    expect(selectedDayTotals()).toHaveTextContent("Unaccounted: 00:30:00");
+
+    // Selected day pie: Work's colour is absent from the pie chart gradient
+    const pieStyle = pieChart().getAttribute("style") ?? "";
+    expect(pieStyle).not.toMatch(/3b82f6|59,\s*130,\s*246/);
+    expect(pieStyle).toMatch(/22c55e|34,\s*197,\s*94/); // Rest colour
+    expect(pieStyle).toMatch(/404040|64,\s*64,\s*64/); // Unaccounted colour
+
+    // Seven day totals: Work is absent, Unaccounted is 30m
+    const days = within(sevenDayTotals()).getAllByRole("listitem");
+    expect(days[6]).not.toHaveTextContent("Work:");
+    expect(days[6]).toHaveTextContent("Rest: 00:30:00");
+    expect(days[6]).toHaveTextContent("Unaccounted: 00:30:00");
+
+    // Timeline: no segment for Work
+    const segments = within(timeline())
+      .getAllByRole("listitem")
+      .filter((item) => item.hasAttribute("data-label"));
+    expect(segments.some((s) => s.getAttribute("data-label") === "label-1")).toBe(false);
+
+    // Blocks list: Work remains visible with its original label
+    const blockListItems = within(blocks()).getAllByRole("listitem");
+    expect(blockListItems[0]).toHaveTextContent("Work");
+    expect(blockListItems[1]).toHaveTextContent("Rest");
   });
 });
