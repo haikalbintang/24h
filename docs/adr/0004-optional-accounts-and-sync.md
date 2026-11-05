@@ -1,6 +1,6 @@
 # Add optional accounts and server sync
 
-Day Labels v2 keeps local-only use as the default, but adds an optional Supabase account (email magic link, optionally Google) so two or more devices can share one timeline. When signed in, the Anchor, Labels, Blocks, Active label, and Heartbeat form one shared document with per-entity merge and a single shared open Block; the theme and session stay device-local. Supabase stores the document server-readably under row-level security.
+Day Labels v2 keeps local-only use as the default, but adds an optional Supabase account (email magic link, optionally Google, and Device handoff via QR code or magic link from an already-signed-in device) so two or more devices can share one timeline. When signed in, the Anchor, Labels, Blocks, Active label, and Heartbeat form one shared document with per-entity merge and a single shared open Block; the theme and session stay device-local, while rotated session credentials are coordinated through the Account. Supabase stores the document server-readably under row-level security, and signed-in sessions auto-refresh so linked devices stay signed in until explicitly signed out on that device.
 
 ## Status
 

@@ -65,9 +65,13 @@ The Anchor, Labels, Blocks, Active label, and Heartbeat that an Account keeps co
 _Avoid_: cloud data, server data
 
 **Device state**:
-Data that belongs to one installation and is never synced, such as the theme, the Account session, and the Account whose first sign-in was last resolved.
+Data that belongs to one installation and is not part of Shared state, such as the theme, the Account session, and the Account whose first sign-in was last resolved. Rotated session credentials may be coordinated through the Account so linked devices stay signed in, but the session remains device-local and is cleared only on that device.
 _Avoid_: local data, cache
 
 **First sign-in prompt**:
 The modal shown when a device with its own Shared state signs in to a non-empty Account it has not synced with before. It offers Merge (default: combine both, keeping the earliest Anchor) or Replace (keep the Account's Shared state, discarding the device's after confirmation). Signing in to a different Account prompts again; the same Account does not.
 _Avoid_: merge dialog, conflict prompt, import prompt
+
+**Device handoff**:
+Signing a second device in to the current Account from an already-signed-in device, either by scanning a displayed QR code or by opening a magic link sent to the Account's email.
+_Avoid_: device pairing, session transfer, account clone

@@ -547,6 +547,31 @@ describe('Sync Shared state integration', () => {
     })
   })
 
+  it('signing out on this device stops syncing and keeps the local Shared state', async () => {
+    const { runtime, user, sync } = setup()
+
+    // Let the initial pull settle, then sign out from the Account dialog.
+    await act(async () => {})
+    await user.click(screen.getByRole('button', { name: 'Account' }))
+    const dialog = screen.getByRole('dialog', { name: 'Account' })
+    await user.click(within(dialog).getByRole('button', { name: 'Sign out' }))
+
+    const callsAfterSignOut = sync.calls.length
+
+    await createLabel(user, 'Local After Sign Out')
+
+    await act(async () => {
+      runtime.clock.advance(15000)
+      window.dispatchEvent(new Event('focus'))
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+
+    expect(sync.calls).toHaveLength(callsAfterSignOut)
+    expect(
+      screen.getByRole('button', { name: 'Local After Sign Out' }),
+    ).toBeInTheDocument()
+  })
+
   it('overlap repair deterministically resolves concurrent overlapping blocks on merge', async () => {
     const sharedAnchor = at('2026-03-08T00:00:00.000Z')
     const t0 = at('2026-03-08T05:30:00.000Z')
