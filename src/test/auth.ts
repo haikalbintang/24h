@@ -15,6 +15,7 @@ export interface FakeAuthOptions {
   initialSession?: AccountSession | null
   isGoogleConfigured?: boolean
   magicLinkError?: string
+  handoffError?: string
   googleError?: string
   signOutError?: string
 }
@@ -40,6 +41,13 @@ export function createFakeAuthAdapter(
       calls.push({ method: 'signInWithMagicLink', email })
       if (options.magicLinkError) {
         return { error: options.magicLinkError }
+      }
+      return {}
+    },
+    sendHandoffMagicLink: async (email: string): Promise<AuthResult> => {
+      calls.push({ method: 'sendHandoffMagicLink', email })
+      if (options.handoffError ?? options.magicLinkError) {
+        return { error: options.handoffError ?? options.magicLinkError }
       }
       return {}
     },

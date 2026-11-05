@@ -154,4 +154,45 @@ describe('First sign-in into a non-empty Account', () => {
     await signIn(auth, 'acc-2')
     expect(await firstSignInDialog()).toBeInTheDocument()
   })
+
+  it('keeps Device handoff disabled while the First sign-in prompt is awaiting resolution', async () => {
+    const { auth, user } = await setup()
+
+    await user.click(screen.getByRole('button', { name: 'Account' }))
+    const accountDialog = screen.getByRole('dialog', { name: 'Account' })
+
+    await signIn(auth)
+    const promptDialog = await firstSignInDialog()
+    expect(promptDialog).toBeInTheDocument()
+
+    const handoffBtn = within(accountDialog).getByRole('button', {
+      name: /Completing initial sync/i,
+    })
+    expect(handoffBtn).toBeDisabled()
+
+    await user.click(within(promptDialog).getByRole('button', { name: 'Continue' }))
+
+    await waitFor(() => {
+      expect(
+        within(accountDialog).getByRole('button', { name: /Send magic link/i }),
+      ).toBeEnabled()
+    })
+  })
+
+  it('silently adopts the Account Shared state without showing First sign-in prompt when a second device has no user-created Shared state', async () => {
+    const sync = createFakeSyncAdapter({
+      initialDocuments: { 'acc-1': remoteDocument('Remote Work', 'label-remote') },
+    })
+    const auth = createFakeAuthAdapter({ initialSession: null })
+    const runtime = createTestRuntime(NOW, createFakeStorage(), auth, sync)
+
+    render(<App runtime={runtime} />)
+
+    await signIn(auth, 'acc-1')
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Remote Work' })).toBeInTheDocument()
+    })
+    expect(screen.queryByRole('dialog', { name: 'First sign-in' })).not.toBeInTheDocument()
+  })
 })

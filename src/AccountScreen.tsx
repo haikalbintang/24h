@@ -4,6 +4,7 @@ import type { AccountSession, Auth } from './auth'
 
 interface AccountScreenProps {
   session: AccountSession | null
+  handoffReady?: boolean
   auth: Auth
   onClose: () => void
   onSignOut: () => void
@@ -11,6 +12,7 @@ interface AccountScreenProps {
 
 export default function AccountScreen({
   session,
+  handoffReady = false,
   auth,
   onClose,
   onSignOut,
@@ -18,6 +20,7 @@ export default function AccountScreen({
   const dialogRef = useRef<HTMLDivElement | null>(null)
   const [email, setEmail] = useState('')
   const [magicLinkSent, setMagicLinkSent] = useState(false)
+  const [handoffLinkSent, setHandoffLinkSent] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -61,56 +64,55 @@ export default function AccountScreen({
     }
   }
 
+  const runAuthAction = async (
+    action: () => Promise<{ error?: string } | undefined>,
+    onSuccess?: () => void,
+  ) => {
+    setSubmitting(true)
+    setErrorMessage(null)
+    try {
+      const result = await action()
+      if (result?.error) {
+        setErrorMessage(result.error)
+      } else {
+        onSuccess?.()
+      }
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   const handleMagicLinkSubmit = async (event: FormEvent) => {
     event.preventDefault()
     const trimmed = email.trim()
     if (!trimmed) {
       return
     }
-
-    setSubmitting(true)
-    setErrorMessage(null)
-    try {
-      const result = await auth.signInWithMagicLink(trimmed)
-      if (result.error) {
-        setErrorMessage(result.error)
-      } else {
-        setMagicLinkSent(true)
-      }
-    } finally {
-      setSubmitting(false)
-    }
+    await runAuthAction(
+      () => auth.signInWithMagicLink(trimmed),
+      () => setMagicLinkSent(true),
+    )
   }
 
   const handleGoogleSignIn = async () => {
     if (!auth.signInWithGoogle) {
       return
     }
-    setSubmitting(true)
-    setErrorMessage(null)
-    try {
-      const result = await auth.signInWithGoogle()
-      if (result?.error) {
-        setErrorMessage(result.error)
-      }
-    } finally {
-      setSubmitting(false)
-    }
+    await runAuthAction(() => auth.signInWithGoogle!())
   }
 
   const handleSignOutClick = async () => {
-    setSubmitting(true)
-    setErrorMessage(null)
-    try {
-      const result = await auth.signOut()
-      if (result?.error) {
-        setErrorMessage(result.error)
-      } else {
-        onSignOut()
-      }
-    } finally {
-      setSubmitting(false)
+    await runAuthAction(() => auth.signOut(), onSignOut)
+  }
+
+  const handleHandoffClick = async () => {
+    if (!session || !handoffReady) {
+      return
     }
+    await runAuthAction(
+      () => auth.sendHandoffMagicLink(session.email),
+      () => setHandoffLinkSent(true),
+    )
   }
 
   return (
@@ -149,7 +151,35 @@ export default function AccountScreen({
                 {session.email}
               </span>
             </p>
-            <p className="text-xs text-neutral-400">
+            <div className="space-y-3 border-t border-neutral-800 pt-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+                Device handoff
+              </h3>
+              <p className="text-xs text-neutral-400">
+                Send a magic link to your email and open it on another device to
+                access this Account and its Shared state.
+              </p>
+              {handoffLinkSent ? (
+                <div
+                  role="status"
+                  className="rounded-lg border border-neutral-700 bg-neutral-950 p-3 text-xs text-neutral-200"
+                >
+                  Check your email on the other device for the magic link.
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleHandoffClick}
+                  disabled={!handoffReady || submitting}
+                  className="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-4 py-2 text-sm font-medium text-neutral-200 transition-colors hover:border-neutral-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600 disabled:opacity-50"
+                >
+                  {handoffReady
+                    ? 'Send magic link to email'
+                    : 'Completing initial sync…'}
+                </button>
+              )}
+            </div>
+            <p className="border-t border-neutral-800 pt-4 text-xs text-neutral-400">
               Signing out keeps the local copy on this device and stops syncing.
             </p>
             {errorMessage ? (

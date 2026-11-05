@@ -311,6 +311,7 @@ export class SyncCoordinator {
 
     this.inFlight = true
     let pushAfter = false
+    let markSyncedAfterPush = false
     try {
       const result = await this.sync.pull(session.accountId)
       if (result.status !== 'success') {
@@ -319,7 +320,14 @@ export class SyncCoordinator {
 
       const remote = result.document
       if (remote === null) {
-        this.markSynced(session.accountId)
+        if (this.needsFirstSync(session.accountId) && hasUserData(this.getSharedState())) {
+          this.queued = true
+          this.queuedSince = this.queuedSince ?? Date.now()
+          this.resolvedAccountId = session.accountId
+          markSyncedAfterPush = true
+        } else {
+          this.markSynced(session.accountId)
+        }
       } else if (
         this.needsFirstSync(session.accountId) &&
         hasUserData(this.getSharedState()) &&
@@ -333,21 +341,34 @@ export class SyncCoordinator {
         const resolved = resolveFirstSignIn(this.getSharedState(), remote.shared, choice)
         this.baseVersion = remote.version
         this.setSharedState(resolved)
-        this.markSynced(session.accountId)
+        this.resolvedAccountId = session.accountId
         if (choice === 'merge') {
           // The merged result differs from the remote, so it must be pushed.
           this.queued = true
           this.queuedSince = this.queuedSince ?? Date.now()
+          markSyncedAfterPush = true
+        } else {
+          this.markSynced(session.accountId)
         }
       } else if (this.baseVersion === null || remote.version > this.baseVersion) {
         const localShared = this.getSharedState()
+        const hadUserData = hasUserData(localShared)
+        const needsInitialPush =
+          this.needsFirstSync(session.accountId) && hadUserData
         const merged =
-          this.baseVersion === null && !hasUserData(localShared)
+          this.baseVersion === null && !hadUserData
             ? remote.shared
             : mergeSharedState(localShared, remote.shared)
         this.baseVersion = remote.version
         this.setSharedState(merged)
-        this.markSynced(session.accountId)
+        if (needsInitialPush) {
+          this.queued = true
+          this.queuedSince = this.queuedSince ?? Date.now()
+          this.resolvedAccountId = session.accountId
+          markSyncedAfterPush = true
+        } else {
+          this.markSynced(session.accountId)
+        }
       } else {
         this.markSynced(session.accountId)
       }
@@ -358,6 +379,13 @@ export class SyncCoordinator {
 
     if (pushAfter) {
       await this.flush()
+      if (
+        markSyncedAfterPush &&
+        !this.queued &&
+        this.getSession()?.accountId === session.accountId
+      ) {
+        this.markSynced(session.accountId)
+      }
     }
   }
 
@@ -412,6 +440,7 @@ export class SyncCoordinator {
           this.baseVersion = result.document.version
           this.queued = false
           this.queuedSince = null
+          this.markSynced(session.accountId)
           break
         } else if (result.status === 'conflict') {
           // Merge conflict: merge remote with local and retry without losing local edits

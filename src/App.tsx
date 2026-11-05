@@ -308,6 +308,10 @@ export default function App({ runtime }: AppProps) {
 
   const archiveUndoVisible =
     archivedUndo !== null && now < archivedUndo.expiresAt;
+  const handoffReady =
+    session !== null &&
+    persisted.device.syncedAccountId === session.accountId &&
+    firstSignIn === null;
 
   const saveState = useCallback(
     (lastSeenValue: number | null) => {
@@ -709,6 +713,7 @@ export default function App({ runtime }: AppProps) {
       {accountOpen ? (
         <AccountScreen
           session={persisted.device.session}
+          handoffReady={handoffReady}
           auth={runtime.auth}
           onClose={() => setAccountOpen(false)}
           onSignOut={handleSignOut}

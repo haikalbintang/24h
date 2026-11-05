@@ -514,3 +514,64 @@ describe('device-local sign-out', () => {
     expect(calls).toHaveLength(0)
   })
 })
+
+describe('Device handoff magic link redirect URL', () => {
+  it('uses publicAppUrl for sendHandoffMagicLink when configured and window.location.origin for signInWithMagicLink', async () => {
+    const storage = createMemoryStorage()
+    const { calls, fetchImpl } = createFetchRecorder(() => json({}))
+
+    const client = createSupabaseClient({
+      supabaseUrl: 'https://project.supabase.co',
+      anonKey: 'anon-key',
+      publicAppUrl: 'https://daylabels.app/',
+      storage,
+      fetchImpl,
+      nowSeconds: () => NOW,
+    })
+
+    await client.auth.signInWithMagicLink('alex@example.com')
+    await client.auth.sendHandoffMagicLink('alex@example.com')
+
+    expect(calls).toHaveLength(2)
+    expect(calls[0]).toMatchObject({
+      url: 'https://project.supabase.co/auth/v1/magiclink',
+      method: 'POST',
+      body: {
+        email: 'alex@example.com',
+        options: {
+          emailRedirectTo: window.location.origin,
+        },
+      },
+    })
+    expect(calls[1]).toMatchObject({
+      url: 'https://project.supabase.co/auth/v1/magiclink',
+      method: 'POST',
+      body: {
+        email: 'alex@example.com',
+        options: {
+          emailRedirectTo: 'https://daylabels.app',
+        },
+      },
+    })
+  })
+
+  it('falls back to window.location.origin for sendHandoffMagicLink when publicAppUrl is not configured', async () => {
+    const storage = createMemoryStorage()
+    const { calls, fetchImpl } = createFetchRecorder(() => json({}))
+
+    const client = createClient(storage, fetchImpl)
+    await client.auth.sendHandoffMagicLink('alex@example.com')
+
+    expect(calls).toHaveLength(1)
+    expect(calls[0]).toMatchObject({
+      url: 'https://project.supabase.co/auth/v1/magiclink',
+      method: 'POST',
+      body: {
+        email: 'alex@example.com',
+        options: {
+          emailRedirectTo: window.location.origin,
+        },
+      },
+    })
+  })
+})

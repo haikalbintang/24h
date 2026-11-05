@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import App from './App'
 import { STATE_STORAGE_KEY } from './persistence'
 import { createFakeAuthAdapter } from './test/auth'
+import { createFakeSyncAdapter } from './test/sync'
 import { createFakeStorage, createTestRuntime } from './test/runtime'
 
 const at = (iso: string) => new Date(iso).getTime()
@@ -12,13 +13,14 @@ function setup({
   now = at('2026-03-08T05:30:00.000Z'),
   storage = createFakeStorage(),
   auth = createFakeAuthAdapter(),
+  sync = createFakeSyncAdapter(),
 } = {}) {
-  const runtime = createTestRuntime(now, storage, auth)
+  const runtime = createTestRuntime(now, storage, auth, sync)
   const user = userEvent.setup()
 
   render(<App runtime={runtime} />)
 
-  return { runtime, user, storage, auth }
+  return { runtime, user, storage, auth, sync }
 }
 
 describe('Account sign-in, sign-out, and local-only fallback', () => {
@@ -214,5 +216,117 @@ describe('Account sign-in, sign-out, and local-only fallback', () => {
 
     expect(within(dialog).getByRole('alert')).toHaveTextContent('Sign-out failed due to network error.')
     expect(within(dialog).getByText(/alex@example.com/i)).toBeInTheDocument()
+  })
+
+  it('displays Device handoff section once initial sync has completed and sends a handoff magic link to the signed-in email', async () => {
+    const initialSession = { accountId: 'acc-1', email: 'alex@example.com' }
+    const auth = createFakeAuthAdapter({ initialSession })
+    const { user } = setup({ auth })
+
+    await act(async () => {})
+
+    await user.click(screen.getByRole('button', { name: 'Account' }))
+    const dialog = screen.getByRole('dialog', { name: 'Account' })
+
+    expect(
+      within(dialog).getByRole('heading', { name: /Device handoff/i }),
+    ).toBeInTheDocument()
+
+    const handoffBtn = within(dialog).getByRole('button', {
+      name: /Send magic link/i,
+    })
+    expect(handoffBtn).toBeEnabled()
+
+    await user.click(handoffBtn)
+
+    expect(auth.calls).toContainEqual({
+      method: 'sendHandoffMagicLink',
+      email: 'alex@example.com',
+    })
+    expect(within(dialog).getByRole('status')).toHaveTextContent(
+      /Check your email on the other device/i,
+    )
+  })
+
+  it('disables Device handoff while initial sync is still pending and enables it once synced', async () => {
+    const initialSession = { accountId: 'acc-1', email: 'alex@example.com' }
+    const auth = createFakeAuthAdapter({ initialSession })
+    const sync = createFakeSyncAdapter({ initialOffline: true })
+    const { user } = setup({ auth, sync })
+
+    await act(async () => {})
+
+    await user.click(screen.getByRole('button', { name: 'Account' }))
+    const dialog = screen.getByRole('dialog', { name: 'Account' })
+
+    const handoffBtn = within(dialog).getByRole('button', {
+      name: /Completing initial sync/i,
+    })
+    expect(handoffBtn).toBeDisabled()
+
+    // Once online and initial pull succeeds, handoff becomes enabled
+    sync.setOffline(false)
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'))
+    })
+
+    const readyBtn = within(dialog).getByRole('button', {
+      name: /Send magic link/i,
+    })
+    expect(readyBtn).toBeEnabled()
+  })
+
+  it('shows error feedback in the Account dialog when handoff magic link fails', async () => {
+    const initialSession = { accountId: 'acc-1', email: 'alex@example.com' }
+    const auth = createFakeAuthAdapter({
+      initialSession,
+      handoffError: 'Unable to send handoff email.',
+    })
+    const { user } = setup({ auth })
+
+    await act(async () => {})
+
+    await user.click(screen.getByRole('button', { name: 'Account' }))
+    const dialog = screen.getByRole('dialog', { name: 'Account' })
+
+    await user.click(
+      within(dialog).getByRole('button', { name: /Send magic link/i }),
+    )
+
+    expect(within(dialog).getByRole('alert')).toHaveTextContent(
+      'Unable to send handoff email.',
+    )
+  })
+
+  it('pushes existing local Shared state to an empty Account on initial sync before enabling Device handoff', async () => {
+    const storage = createFakeStorage()
+    const sync = createFakeSyncAdapter()
+    const auth = createFakeAuthAdapter({ initialSession: null })
+    const { user } = setup({ storage, auth, sync })
+
+    // Create local user data while signed out
+    await user.click(screen.getByRole('button', { name: 'New label' }))
+    const form = screen.getByRole('form', { name: 'Create label' })
+    await user.type(
+      within(form).getByRole('textbox', { name: 'New label name' }),
+      'Pre-existing Local',
+    )
+    await user.click(within(form).getByRole('button', { name: 'Create label' }))
+
+    // Sign in to a brand-new empty Account
+    await act(async () => {
+      auth.simulateSignIn({ accountId: 'acc-fresh', email: 'alex@example.com' })
+    })
+
+    // Remote Account now holds the local Shared state without waiting for debounce
+    expect(
+      sync.getRemoteDocument('acc-fresh')?.shared.labels.map((l) => l.name),
+    ).toContain('Pre-existing Local')
+
+    await user.click(screen.getByRole('button', { name: 'Account' }))
+    const dialog = screen.getByRole('dialog', { name: 'Account' })
+    expect(
+      within(dialog).getByRole('button', { name: /Send magic link/i }),
+    ).toBeEnabled()
   })
 })

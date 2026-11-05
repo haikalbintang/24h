@@ -45,6 +45,7 @@ export interface SupabaseClientOptions {
   supabaseUrl: string
   anonKey: string
   isGoogleConfigured?: boolean
+  publicAppUrl?: string
   storage?: SessionStorage
   /** Unix epoch seconds. Injectable so tests do not depend on the wall clock. */
   nowSeconds?: () => number
@@ -408,48 +409,63 @@ export function createSupabaseAuth(
 ): Auth {
   const supabaseUrl = options.supabaseUrl.replace(/\/+$/, '')
   const fetchImpl = options.fetchImpl ?? getDefaultFetch()
+  const handoffRedirectUrl =
+    options.publicAppUrl?.trim().replace(/\/+$/, '') || undefined
+
+  const dispatchMagicLink = async (
+    email: string,
+    emailRedirectTo: string,
+  ): Promise<AuthResult> => {
+    try {
+      const response = await fetchImpl(
+        `${supabaseUrl}/auth/v1/magiclink`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: options.anonKey,
+          },
+          body: JSON.stringify({
+            email,
+            options: {
+              emailRedirectTo,
+            },
+          }),
+        },
+      )
+
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as {
+          msg?: string
+          error_description?: string
+          message?: string
+        }
+        return {
+          error:
+            body.msg ??
+            body.error_description ??
+            body.message ??
+            'Failed to send magic link',
+        }
+      }
+
+      return {}
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : String(err) }
+    }
+  }
 
   return {
     isGoogleConfigured: options.isGoogleConfigured ?? false,
     getSession: () => sessionManager.getSession(),
-    async signInWithMagicLink(email: string): Promise<AuthResult> {
-      try {
-        const response = await fetchImpl(
-          `${supabaseUrl}/auth/v1/magiclink`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              apikey: options.anonKey,
-            },
-            body: JSON.stringify({
-              email,
-              options: {
-                emailRedirectTo: window.location.origin,
-              },
-            }),
-          },
-        )
-
-        if (!response.ok) {
-          const body = (await response.json().catch(() => ({}))) as {
-            msg?: string
-            error_description?: string
-            message?: string
-          }
-          return {
-            error:
-              body.msg ??
-              body.error_description ??
-              body.message ??
-              'Failed to send magic link',
-          }
-        }
-
-        return {}
-      } catch (err) {
-        return { error: err instanceof Error ? err.message : String(err) }
-      }
+    signInWithMagicLink(email: string): Promise<AuthResult> {
+      return dispatchMagicLink(email, window.location.origin)
+    },
+    sendHandoffMagicLink(email: string): Promise<AuthResult> {
+      return dispatchMagicLink(
+        email,
+        handoffRedirectUrl ?? window.location.origin,
+      )
     },
     async signInWithGoogle(): Promise<AuthResult> {
       try {

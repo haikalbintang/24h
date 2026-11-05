@@ -11,6 +11,7 @@ export interface Auth {
   readonly isGoogleConfigured: boolean
   getSession(): AccountSession | null
   signInWithMagicLink(email: string): Promise<AuthResult>
+  sendHandoffMagicLink(email: string): Promise<AuthResult>
   signInWithGoogle?(): Promise<AuthResult>
   signOut(): Promise<AuthResult>
   subscribe(listener: (session: AccountSession | null) => void): () => void

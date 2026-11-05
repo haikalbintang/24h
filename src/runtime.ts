@@ -70,6 +70,10 @@ export function createBrowserRuntime(): Runtime {
     (typeof import.meta !== 'undefined' &&
       import.meta.env?.VITE_SUPABASE_GOOGLE_ENABLED === 'true') ||
     false
+  const publicAppUrl =
+    (typeof import.meta !== 'undefined' &&
+      import.meta.env?.VITE_PUBLIC_APP_URL) ||
+    undefined
 
   const supabase =
     supabaseUrl && anonKey
@@ -77,6 +81,7 @@ export function createBrowserRuntime(): Runtime {
           supabaseUrl,
           anonKey,
           isGoogleConfigured,
+          publicAppUrl,
         })
       : null
 
@@ -85,6 +90,7 @@ export function createBrowserRuntime(): Runtime {
       isGoogleConfigured: false,
       getSession: () => null,
       signInWithMagicLink: async () => ({ error: 'Auth not configured' }),
+      sendHandoffMagicLink: async () => ({ error: 'Auth not configured' }),
       signOut: async () => ({}),
       subscribe: () => () => {},
     }
