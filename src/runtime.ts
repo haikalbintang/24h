@@ -91,6 +91,7 @@ export function createBrowserRuntime(): Runtime {
       getSession: () => null,
       signInWithMagicLink: async () => ({ error: 'Auth not configured' }),
       sendHandoffMagicLink: async () => ({ error: 'Auth not configured' }),
+      createHandoff: async () => ({ error: 'Auth not configured' }),
       signOut: async () => ({}),
       subscribe: () => () => {},
     }

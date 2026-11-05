@@ -25,6 +25,7 @@ import ReopenPrompt from "./ReopenPrompt";
 import AccountScreen from "./AccountScreen";
 import { useBlocks, UNDO_WINDOW_MS } from "./useBlocks";
 import type { Runtime } from "./runtime";
+import { sameAccountSession, type AccountSession } from "./auth";
 
 export interface AppProps {
   runtime: Runtime;
@@ -354,15 +355,26 @@ export default function App({ runtime }: AppProps) {
   }, [runtime, recordHeartbeat, saveState]);
 
   useEffect(() => {
-    return runtime.auth.subscribe((authSession) => {
-      setPersisted((current) => ({
-        ...current,
-        device: {
-          ...current.device,
-          session: authSession,
-        },
-      }));
-    });
+    const applySession = (authSession: AccountSession | null) => {
+      setPersisted((current) => {
+        if (sameAccountSession(current.device.session, authSession)) {
+          return current;
+        }
+        return {
+          ...current,
+          device: {
+            ...current.device,
+            session: authSession,
+          },
+        };
+      });
+    };
+
+    const unsubscribe = runtime.auth.subscribe(applySession);
+    // A handoff redirect can be consumed before this subscription attaches, so
+    // read the session once more after subscribing to close that race.
+    applySession(runtime.auth.getSession());
+    return unsubscribe;
   }, [runtime]);
 
   const handleSignOut = () => {

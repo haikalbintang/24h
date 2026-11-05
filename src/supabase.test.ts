@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import {
   createSupabaseClient,
   SUPABASE_AUTH_STORAGE_KEY,
@@ -573,5 +573,130 @@ describe('Device handoff magic link redirect URL', () => {
         },
       },
     })
+  })
+})
+
+describe('Device handoff via QR code', () => {
+  afterEach(() => {
+    window.history.replaceState(null, '', '/')
+  })
+
+  it('publishes a single-use credential and returns a QR URL on the public app URL', async () => {
+    const storage = createMemoryStorage()
+    seedSession(storage, {
+      accessToken: 'access-1',
+      refreshToken: 'refresh-1',
+      expiresAt: NOW + 3600,
+    })
+
+    const { calls, fetchImpl } = createFetchRecorder((call) => {
+      if (call.url.includes('/rest/v1/handoff_tokens')) {
+        return json({}, 201)
+      }
+      throw new Error(`Unexpected request: ${call.url}`)
+    })
+
+    const client = createSupabaseClient({
+      supabaseUrl: 'https://project.supabase.co',
+      anonKey: 'anon-key',
+      publicAppUrl: 'https://daylabels.app/',
+      storage,
+      fetchImpl,
+      nowSeconds: () => NOW,
+    })
+
+    const result = await client.auth.createHandoff!()
+
+    expect(result.error).toBeUndefined()
+    expect(result.url).toMatch(/^https:\/\/daylabels\.app\/\?handoff=[0-9a-f]+$/)
+
+    const insert = calls.find((call) => call.url.includes('/rest/v1/handoff_tokens'))
+    if (!insert) {
+      throw new Error('Expected a handoff_tokens insert')
+    }
+    expect(insert.method).toBe('POST')
+    expect(insert.authorization).toBe('Bearer access-1')
+    expect(insert.body).toMatchObject({
+      user_id: 'acc-1',
+      email: 'alex@example.com',
+      access_token: 'access-1',
+      refresh_token: 'refresh-1',
+      expires_at: NOW + 3600,
+    })
+    expect((insert.body as { token: string }).token).toMatch(/^[0-9a-f]+$/)
+    expect(new URL(result.url!).searchParams.get('handoff')).toBe(
+      (insert.body as { token: string }).token,
+    )
+  })
+
+  it('falls back to window.location.origin for the QR URL when no public app URL is configured', async () => {
+    const storage = createMemoryStorage()
+    seedSession(storage, {
+      accessToken: 'access-1',
+      refreshToken: 'refresh-1',
+      expiresAt: NOW + 3600,
+    })
+
+    const { fetchImpl } = createFetchRecorder(() => json({}, 201))
+    const client = createClient(storage, fetchImpl)
+
+    const result = await client.auth.createHandoff!()
+
+    expect(new URL(result.url!).origin).toBe(window.location.origin)
+    expect(new URL(result.url!).searchParams.get('handoff')).not.toBeNull()
+  })
+
+  it('exchanges a handoff token from the URL for the Account session and strips it', async () => {
+    window.history.replaceState(null, '', '/?handoff=handoff-token&keep=1')
+
+    const storage = createMemoryStorage()
+    const { calls, fetchImpl } = createFetchRecorder((call) => {
+      if (call.url.endsWith('/rest/v1/rpc/consume_handoff_token')) {
+        return json([
+          {
+            access_token: 'handoff-access',
+            refresh_token: 'handoff-refresh',
+            expires_at: NOW + 3600,
+            user_id: 'acc-9',
+            email: 'phone@example.com',
+          },
+        ])
+      }
+      throw new Error(`Unexpected request: ${call.url}`)
+    })
+
+    const client = createClient(storage, fetchImpl)
+    await client.ready
+
+    expect(calls[0]).toMatchObject({
+      url: 'https://project.supabase.co/rest/v1/rpc/consume_handoff_token',
+      method: 'POST',
+      body: { handoff_token: 'handoff-token' },
+    })
+    expect(client.auth.getSession()).toEqual({
+      accountId: 'acc-9',
+      email: 'phone@example.com',
+    })
+    expect(readSession(storage)).toMatchObject({
+      access_token: 'handoff-access',
+      refresh_token: 'handoff-refresh',
+      expires_at: NOW + 3600,
+      user: { id: 'acc-9', email: 'phone@example.com' },
+    })
+    expect(window.location.search).toBe('?keep=1')
+    expect(window.location.pathname).toBe('/')
+  })
+
+  it('strips handoff parameters when the token is invalid or already used', async () => {
+    window.history.replaceState(null, '', '/?handoff=used-token')
+
+    const storage = createMemoryStorage()
+    const { fetchImpl } = createFetchRecorder(() => json([]))
+
+    const client = createClient(storage, fetchImpl)
+    await client.ready
+
+    expect(client.auth.getSession()).toBeNull()
+    expect(window.location.search).toBe('')
   })
 })

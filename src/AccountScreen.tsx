@@ -1,6 +1,7 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, KeyboardEvent } from 'react'
 import type { AccountSession, Auth } from './auth'
+import HandoffQrCode from './HandoffQrCode'
 
 interface AccountScreenProps {
   session: AccountSession | null
@@ -21,8 +22,50 @@ export default function AccountScreen({
   const [email, setEmail] = useState('')
   const [magicLinkSent, setMagicLinkSent] = useState(false)
   const [handoffLinkSent, setHandoffLinkSent] = useState(false)
+  const [handoff, setHandoff] = useState<{
+    status: 'idle' | 'ready' | 'error'
+    url?: string
+    error?: string
+  }>({ status: 'idle' })
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (!session || !handoffReady) {
+      return
+    }
+
+    let cancelled = false
+
+    void auth
+      .createHandoff()
+      .then((result) => {
+        if (cancelled) {
+          return
+        }
+        if (result.error || !result.url) {
+          setHandoff({
+            status: 'error',
+            error: result.error ?? 'Could not create a Device handoff link.',
+          })
+          return
+        }
+        setHandoff({ status: 'ready', url: result.url })
+      })
+      .catch((err: unknown) => {
+        if (cancelled) {
+          return
+        }
+        setHandoff({
+          status: 'error',
+          error: err instanceof Error ? err.message : String(err),
+        })
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [auth, session, handoffReady])
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'Escape') {
@@ -156,9 +199,32 @@ export default function AccountScreen({
                 Device handoff
               </h3>
               <p className="text-xs text-neutral-400">
-                Send a magic link to your email and open it on another device to
-                access this Account and its Shared state.
+                Scan this QR code with your phone camera to sign in to this
+                Account and its Shared state, or send a magic link to your
+                email.
               </p>
+              {handoffReady ? (
+                handoff.status === 'ready' && handoff.url ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <HandoffQrCode url={handoff.url} />
+                    <p className="text-center text-xs text-neutral-500">
+                      The code expires shortly and works once.
+                    </p>
+                  </div>
+                ) : handoff.status === 'error' ? (
+                  <p role="alert" className="text-xs text-red-400">
+                    {handoff.error}
+                  </p>
+                ) : (
+                  <p role="status" className="text-xs text-neutral-400">
+                    Generating QR code…
+                  </p>
+                )
+              ) : (
+                <p className="text-xs text-neutral-500">
+                  Waiting for initial sync before creating a handoff link.
+                </p>
+              )}
               {handoffLinkSent ? (
                 <div
                   role="status"

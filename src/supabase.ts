@@ -1,4 +1,15 @@
-import type { AccountSession, Auth, AuthResult } from './auth'
+import {
+  sameAccountSession,
+  type AccountSession,
+  type Auth,
+  type AuthResult,
+} from './auth'
+import {
+  buildHandoffUrl,
+  createHandoffToken,
+  readHandoffToken,
+  withoutHandoffParam,
+} from './handoff'
 import type { SharedState } from './persistence'
 import type {
   RemoteDocument,
@@ -70,13 +81,6 @@ function toAccountSession(session: SupabaseSession | null): AccountSession | nul
     accountId: session.user.id,
     email: session.user.email ?? '',
   }
-}
-
-function sameAccountSession(
-  a: AccountSession | null,
-  b: AccountSession | null,
-): boolean {
-  return a?.accountId === b?.accountId && a?.email === b?.email
 }
 
 function decodeJwtExpiry(token: string): number | null {
@@ -467,6 +471,62 @@ export function createSupabaseAuth(
         handoffRedirectUrl ?? window.location.origin,
       )
     },
+    async createHandoff() {
+      const account = sessionManager.getSession()
+      if (account === null) {
+        return { error: 'Not signed in' }
+      }
+
+      try {
+        // Refresh first so the second device receives credentials it can use.
+        const accessToken = await sessionManager.getAccessToken()
+        const tokens = sessionManager.getTokens()
+        if (
+          accessToken === null ||
+          tokens === null ||
+          tokens.refresh_token.length === 0
+        ) {
+          return { error: 'This session cannot be handed off' }
+        }
+
+        const token = createHandoffToken()
+        const response = await fetchImpl(
+          `${supabaseUrl}/rest/v1/handoff_tokens`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              apikey: options.anonKey,
+              Authorization: `Bearer ${tokens.access_token}`,
+              Prefer: 'return=minimal',
+            },
+            body: JSON.stringify({
+              token,
+              user_id: account.accountId,
+              email: account.email,
+              access_token: tokens.access_token,
+              refresh_token: tokens.refresh_token,
+              expires_at: tokens.expires_at,
+            }),
+          },
+        )
+
+        if (!response.ok) {
+          return {
+            error: `Could not create a Device handoff link (HTTP ${response.status})`,
+          }
+        }
+
+        return {
+          url: buildHandoffUrl(
+            handoffRedirectUrl ?? window.location.origin,
+            token,
+          ),
+        }
+      } catch (err) {
+        return { error: err instanceof Error ? err.message : String(err) }
+      }
+    },
     async signInWithGoogle(): Promise<AuthResult> {
       try {
         const redirectTo = encodeURIComponent(window.location.origin)
@@ -639,6 +699,8 @@ export interface SupabaseClient {
   auth: Auth
   sync: SyncAdapter
   session: SupabaseSessionManager
+  /** Resolves once any handoff or auth redirect has been consumed. */
+  ready: Promise<void>
 }
 
 async function consumeAuthRedirect(
@@ -697,15 +759,93 @@ async function consumeAuthRedirect(
   }
 }
 
+interface HandoffRow {
+  access_token?: unknown
+  refresh_token?: unknown
+  expires_at?: unknown
+  user_id?: unknown
+  email?: unknown
+}
+
+async function consumeHandoffRedirect(
+  sessionManager: SupabaseSessionManager,
+  options: SupabaseClientOptions,
+): Promise<void> {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  const token = readHandoffToken(window.location.href)
+  if (token === null) {
+    return
+  }
+
+  const fetchImpl = options.fetchImpl ?? getDefaultFetch()
+
+  try {
+    const response = await fetchImpl(
+      `${options.supabaseUrl.replace(/\/+$/, '')}/rest/v1/rpc/consume_handoff_token`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: options.anonKey,
+        },
+        body: JSON.stringify({ handoff_token: token }),
+      },
+    )
+
+    if (response.ok) {
+      const rows = (await response.json()) as HandoffRow[]
+      const row = Array.isArray(rows) ? rows[0] : undefined
+
+      if (
+        row &&
+        typeof row.access_token === 'string' &&
+        typeof row.refresh_token === 'string' &&
+        typeof row.user_id === 'string'
+      ) {
+        const expiresAt =
+          typeof row.expires_at === 'number'
+            ? row.expires_at
+            : Number(row.expires_at)
+
+        sessionManager.adoptTokens({
+          access_token: row.access_token,
+          refresh_token: row.refresh_token,
+          expires_at: Number.isFinite(expiresAt) ? expiresAt : undefined,
+          user: {
+            id: row.user_id,
+            email: typeof row.email === 'string' ? row.email : '',
+          },
+        })
+      }
+
+      // The capability is single-use, so it never belongs in the URL bar.
+      window.history.replaceState(
+        null,
+        document.title,
+        withoutHandoffParam(window.location.href),
+      )
+    }
+  } catch {
+    // Leave the parameter in place so a retry can exchange it again.
+  }
+}
+
 export function createSupabaseClient(
   options: SupabaseClientOptions,
 ): SupabaseClient {
   const session = createSupabaseSessionManager(options)
-  void consumeAuthRedirect(session, options)
+  const ready = Promise.all([
+    consumeAuthRedirect(session, options),
+    consumeHandoffRedirect(session, options),
+  ]).then(() => {})
 
   return {
     auth: createSupabaseAuth(session, options),
     sync: createSupabaseSync(session, options),
     session,
+    ready,
   }
 }

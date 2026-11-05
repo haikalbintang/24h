@@ -16,6 +16,8 @@ export interface FakeAuthOptions {
   isGoogleConfigured?: boolean
   magicLinkError?: string
   handoffError?: string
+  handoffUrl?: string
+  handoffCreateError?: string
   googleError?: string
   signOutError?: string
 }
@@ -43,6 +45,17 @@ export function createFakeAuthAdapter(
         return { error: options.magicLinkError }
       }
       return {}
+    },
+    createHandoff: async () => {
+      calls.push({ method: 'createHandoff' })
+      if (options.handoffCreateError) {
+        return { error: options.handoffCreateError }
+      }
+      return {
+        url:
+          options.handoffUrl ??
+          'https://handoff.test/?handoff=fake-handoff-token',
+      }
     },
     sendHandoffMagicLink: async (email: string): Promise<AuthResult> => {
       calls.push({ method: 'sendHandoffMagicLink', email })
