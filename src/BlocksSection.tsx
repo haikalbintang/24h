@@ -273,59 +273,72 @@ export default function BlocksSection({
                     : formatClock(block.end - dayStart);
                 const duration = formatClock(getBlockDuration(block, now));
 
+                const compactStartLabel = formatClock(block.start - dayStart).slice(0, 5);
+                const compactEndLabel =
+                  block.end === null
+                    ? "Now"
+                    : formatClock(block.end - dayStart).slice(0, 5);
+
                 return (
                   <li
                     key={block.id}
                     aria-describedby={`block-${block.id}-colour`}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-neutral-800 bg-neutral-900/40 px-4 py-2"
+                    className="rounded-lg border border-neutral-800 bg-neutral-900/40 px-3 py-2 sm:px-4"
                   >
-                    <div className="flex items-center gap-2">
-                      {colour ? (
-                        <span
-                          aria-hidden="true"
-                          className="relative flex h-3 w-3"
-                        >
-                          {block.end === null ? (
+                    <div className="flex min-w-0 items-center gap-2 text-xs sm:flex-wrap sm:justify-between sm:gap-3 sm:text-sm">
+                      <div className="flex min-w-0 items-center gap-2 sm:shrink-0">
+                        {colour ? (
+                          <span
+                            aria-hidden="true"
+                            className="relative flex h-3 w-3 shrink-0"
+                          >
+                            {block.end === null ? (
+                              <span
+                                className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
+                                style={{ backgroundColor: colour.value }}
+                              />
+                            ) : null}
                             <span
-                              className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
+                              className="relative inline-flex h-3 w-3 rounded-full"
                               style={{ backgroundColor: colour.value }}
                             />
-                          ) : null}
-                          <span
-                            className="relative inline-flex h-3 w-3 rounded-full"
-                            style={{ backgroundColor: colour.value }}
-                          />
+                          </span>
+                        ) : null}
+                        <span className="truncate font-medium text-neutral-100">
+                          {label ? label.name : "Unknown"}
                         </span>
-                      ) : null}
-                      <span className="text-sm font-medium text-neutral-100">
-                        {label ? label.name : "Unknown"}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3 text-sm text-neutral-400">
-                      <span>
-                        {startLabel} – {endLabel}
-                      </span>
-                      <span
-                        className={`font-mono tabular-nums ${
-                          block.end === null ? "font-medium text-neutral-100" : ""
-                        }`}
-                      >
-                        {duration}
-                      </span>
-                      <BlockMenu
-                        items={[
-                          {
-                            label: "Edit",
-                            icon: <PencilIcon />,
-                            onSelect: () => startEditing(block),
-                          },
-                          {
-                            label: "Split",
-                            icon: <ScissorsIcon />,
-                            onSelect: () => startSplitting(block),
-                          },
-                        ]}
-                      />
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2 text-neutral-400 sm:flex-wrap sm:gap-3">
+                        <span className="tabular-nums">
+                          <span className="sm:hidden">
+                            {compactStartLabel}–{compactEndLabel}
+                          </span>
+                          <span className="hidden sm:inline">
+                            {startLabel} – {endLabel}
+                          </span>
+                        </span>
+                        <span
+                          className={`font-mono tabular-nums ${
+                            block.end === null ? "font-medium text-neutral-100" : ""
+                          }`}
+                        >
+                          {duration}
+                        </span>
+                        <BlockMenu
+                          items={[
+                            {
+                              label: "Edit",
+                              icon: <PencilIcon />,
+                              onSelect: () => startEditing(block),
+                            },
+                            {
+                              label: "Split",
+                              icon: <ScissorsIcon />,
+                              onSelect: () => startSplitting(block),
+                            },
+                          ]}
+                        />
+                      </div>
                     </div>
                     {splittingId === block.id ? (
                       <form

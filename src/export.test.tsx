@@ -81,7 +81,8 @@ describe('Export', () => {
   it('exports the full versioned state as JSON', async () => {
     const { runtime, user } = setup()
 
-    await user.click(screen.getByRole('button', { name: 'Export JSON' }))
+    await user.click(screen.getByRole('button', { name: 'Export' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Export JSON' }))
 
     const call = runtime.exportSink.calls[0]
 
@@ -139,7 +140,8 @@ describe('Export', () => {
   it('exports one CSV row per Block with day label, label name, start, end, and duration', async () => {
     const { runtime, user } = setup()
 
-    await user.click(screen.getByRole('button', { name: 'Export CSV' }))
+    await user.click(screen.getByRole('button', { name: 'Export' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Export CSV' }))
 
     const call = runtime.exportSink.calls[0]
 
@@ -158,7 +160,8 @@ describe('Export', () => {
   it('exports the active Block with a blank end and duration to export time', async () => {
     const { runtime, user } = setup()
 
-    await user.click(screen.getByRole('button', { name: 'Export CSV' }))
+    await user.click(screen.getByRole('button', { name: 'Export' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Export CSV' }))
 
     const call = runtime.exportSink.calls[0]
 

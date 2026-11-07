@@ -37,6 +37,113 @@ const exportButtonClass =
 const themeToggleButtonClass =
   "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-900 text-neutral-200 transition-colors hover:border-neutral-500 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600";
 
+interface ExportMenuProps {
+  onExportJson: () => void;
+  onExportCsv: () => void;
+}
+
+function ExportMenu({ onExportJson, onExportCsv }: ExportMenuProps) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLUListElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+      if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+
+      const menu = menuRef.current;
+      if (menu === null) return;
+
+      const menuItems = Array.from(
+        menu.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'),
+      ).filter((button) => !button.disabled);
+
+      if (menuItems.length === 0) return;
+
+      const currentIndex = menuItems.findIndex(
+        (button) => button === document.activeElement,
+      );
+      const step = event.key === "ArrowDown" ? 1 : -1;
+      let nextIndex = currentIndex + step;
+
+      if (currentIndex === -1) {
+        nextIndex = event.key === "ArrowDown" ? 0 : menuItems.length - 1;
+      } else if (nextIndex < 0) {
+        nextIndex = menuItems.length - 1;
+      } else if (nextIndex >= menuItems.length) {
+        nextIndex = 0;
+      }
+
+      menuItems[nextIndex]?.focus();
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        aria-label="Export"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        className={exportButtonClass}
+      >
+        Export
+      </button>
+      {open ? (
+        <ul
+          ref={menuRef}
+          role="menu"
+          aria-label="Export"
+          className="absolute right-0 z-10 mt-1 min-w-36 rounded-lg border border-neutral-700 bg-neutral-900 p-1 shadow-lg"
+        >
+          <li role="none">
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onExportJson();
+              }}
+              className="flex w-full items-center rounded-md px-3 py-1.5 text-left text-sm text-neutral-200 hover:bg-neutral-800 focus:bg-neutral-800 focus:outline-none"
+            >
+              Export JSON
+            </button>
+          </li>
+          <li role="none">
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onExportCsv();
+              }}
+              className="flex w-full items-center rounded-md px-3 py-1.5 text-left text-sm text-neutral-200 hover:bg-neutral-800 focus:bg-neutral-800 focus:outline-none"
+            >
+              Export CSV
+            </button>
+          </li>
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 function SunIcon() {
   return (
     <svg
@@ -614,20 +721,7 @@ export default function App({ runtime }: AppProps) {
                 </option>
               ))}
             </select>
-            <button
-              type="button"
-              onClick={exportJson}
-              className={exportButtonClass}
-            >
-              Export JSON
-            </button>
-            <button
-              type="button"
-              onClick={exportCsv}
-              className={exportButtonClass}
-            >
-              Export CSV
-            </button>
+            <ExportMenu onExportJson={exportJson} onExportCsv={exportCsv} />
           </div>
           <p className="w-full text-xs text-neutral-500">
             No import is available; an exported file cannot be restored here.
