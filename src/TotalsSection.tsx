@@ -224,7 +224,7 @@ export default function TotalsSection(props: TotalsSectionProps) {
                   <span className="flex min-w-0 items-center gap-2">
                     <span
                       aria-hidden="true"
-                      className="h-3 w-3 shrink-0 rounded-full border border-dashed border-neutral-500"
+                      className={`h-3 w-3 shrink-0 ${UNACCOUNTED_MARKER_CLASS}`}
                     />
                     <span className="truncate">Unaccounted: </span>
                   </span>
