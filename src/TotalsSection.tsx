@@ -217,7 +217,7 @@ export default function TotalsSection(props: TotalsSectionProps) {
                         />
                         <span className="truncate">{label.name}: </span>
                       </span>
-                      <span className="shrink-0 font-mono tabular-nums">
+                      <span className="shrink-0 font-mono text-xs tabular-nums">
                         {formatClock(totals.get(label.id) ?? 0)}
                       </span>
                     </li>
@@ -231,7 +231,7 @@ export default function TotalsSection(props: TotalsSectionProps) {
                     />
                     <span className="truncate">Unaccounted: </span>
                   </span>
-                  <span className="shrink-0 font-mono tabular-nums">
+                  <span className="shrink-0 font-mono text-xs tabular-nums">
                     {formatClock(unaccounted)}
                   </span>
                 </li>

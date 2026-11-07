@@ -369,8 +369,8 @@ export default function BlocksSection({
                     aria-describedby={`block-${block.id}-colour`}
                     className="rounded-lg border border-neutral-800 bg-neutral-900/40 px-3 py-2 sm:px-4"
                   >
-                    <div className="flex min-w-0 items-center gap-2 text-xs sm:flex-wrap sm:justify-between sm:gap-3 sm:text-sm">
-                      <div className="flex min-w-0 items-center gap-2 sm:shrink-0">
+                    <div className="flex min-w-0 items-center justify-between gap-2 text-xs sm:flex-wrap sm:gap-3 sm:text-sm">
+                      <div className="flex min-w-0 flex-1 items-center gap-2 sm:flex-initial sm:shrink-0">
                         {colour ? (
                           isUnaccountedLabelId(block.labelId) ? (
                             <span
@@ -395,7 +395,7 @@ export default function BlocksSection({
                             </span>
                           )
                         ) : null}
-                        <span className="truncate font-medium text-neutral-100">
+                        <span className="truncate text-sm font-medium text-neutral-100">
                           {label ? label.name : "Unknown"}
                         </span>
                       </div>
