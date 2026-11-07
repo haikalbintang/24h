@@ -298,7 +298,7 @@ describe("Block corrections", () => {
     expect(dayTotals()).toHaveTextContent("00:10:00");
   });
 
-  it("offers every Label, archived ones included, for a finished Block", async () => {
+  it("offers every Label for a finished Block, active then archived alphabetically, with Unaccounted last", async () => {
     const { user } = await setupTwoBlocks();
 
     await user.click(screen.getByRole("button", { name: "Manage labels" }));
@@ -306,9 +306,7 @@ describe("Block corrections", () => {
 
     const form = await openBlockEditForm(user, 1);
 
-    expect(optionNames(form)).toEqual(
-      expect.arrayContaining(["Work", "Rest", "Unaccounted"]),
-    );
+    expect(optionNames(form)).toEqual(["Rest", "Work", "Unaccounted"]);
 
     await user.selectOptions(
       within(form).getByRole("combobox", { name: "Label" }),
@@ -322,7 +320,7 @@ describe("Block corrections", () => {
     expect(blockItems()[0]).toHaveTextContent("00:30:00 – 00:50:00");
   });
 
-  it("offers only non-archived Labels for the active Block", async () => {
+  it("offers only non-archived Labels for the active Block, alphabetically with Unaccounted last", async () => {
     const { user } = await setupTwoBlocks();
 
     await user.click(screen.getByRole("button", { name: "Manage labels" }));
@@ -330,10 +328,7 @@ describe("Block corrections", () => {
 
     const form = await openBlockEditForm(user, 2);
 
-    expect(optionNames(form)).toEqual(
-      expect.arrayContaining(["Rest", "Unaccounted"]),
-    );
-    expect(optionNames(form)).not.toContain("Work");
+    expect(optionNames(form)).toEqual(["Rest", "Unaccounted"]);
   });
 
   it("relabels the active Block without closing it", async () => {
@@ -400,13 +395,69 @@ describe("Block actions menu", () => {
 
     await user.keyboard("{ArrowDown}");
     expect(
-      within(menu).getByRole("menuitem", { name: "Edit" }),
+      within(menu).getByRole("menuitem", { name: "Split" }),
     ).toHaveFocus();
 
     await user.keyboard("{ArrowDown}");
     expect(
-      within(menu).getByRole("menuitem", { name: "Split" }),
+      within(menu).getByRole("menuitem", { name: "Edit" }),
     ).toHaveFocus();
+  });
+});
+
+describe("Block edit/split UX", () => {
+  it("focuses the label select when editing a block", async () => {
+    const { user } = await setupTwoBlocks();
+
+    const form = await openBlockEditForm(user, 0);
+
+    expect(
+      within(form).getByRole("combobox", { name: "Label" }),
+    ).toHaveFocus();
+  });
+
+  it("focuses the split input and prefills a valid midpoint", async () => {
+    const { user } = await setupTwoBlocks();
+
+    await user.click(
+      within(blockItems()[0]).getByRole("button", { name: "Block actions" }),
+    );
+    await user.click(
+      within(screen.getByRole("menu", { name: "Block actions" })).getByRole(
+        "menuitem",
+        { name: "Split" },
+      ),
+    );
+
+    const form = screen.getByRole("form", { name: "Split block" });
+    const input = within(form).getByRole("textbox", { name: "Split at" });
+
+    expect(input).toHaveFocus();
+    expect(input).toHaveValue("00:35:00");
+    expect(input).toHaveAttribute("inputmode", "numeric");
+    expect(input).toHaveAttribute("placeholder", "HH:MM:SS");
+  });
+
+  it("auto-formats typed digits into HH:MM:SS", async () => {
+    const { user } = await setupTwoBlocks();
+
+    await user.click(
+      within(blockItems()[0]).getByRole("button", { name: "Block actions" }),
+    );
+    await user.click(
+      within(screen.getByRole("menu", { name: "Block actions" })).getByRole(
+        "menuitem",
+        { name: "Split" },
+      ),
+    );
+
+    const form = screen.getByRole("form", { name: "Split block" });
+    const input = within(form).getByRole("textbox", { name: "Split at" });
+
+    await user.clear(input);
+    await user.type(input, "003700");
+
+    expect(input).toHaveValue("00:37:00");
   });
 });
 
@@ -427,8 +478,10 @@ describe("splitting Blocks", () => {
     );
 
     const form = screen.getByRole("form", { name: "Split block" });
+    const input = within(form).getByRole("textbox", { name: "Split at" });
 
-    await user.type(within(form).getByRole("textbox", { name: "Split at" }), time);
+    await user.clear(input);
+    await user.type(input, time);
     await user.click(within(form).getByRole("button", { name: "Split" }));
   }
 

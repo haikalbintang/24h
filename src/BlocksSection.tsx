@@ -2,8 +2,43 @@ import { useEffect, useRef, useState } from "react";
 import { formatClock, parseClock } from "./day";
 import { getBlockDuration } from "./blocks";
 import type { Block } from "./blocks";
-import { getLabelColour, isLabelArchived } from "./labels";
+import { compareLabels, getLabelColour, isLabelArchived, isUnaccountedLabel } from "./labels";
 import type { Label, LabelId } from "./labels";
+
+function formatSplitClockInput(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 6);
+
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}:${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}:${digits.slice(2, 4)}:${digits.slice(4)}`;
+}
+
+function getEditLabelOptions(block: Block, labels: Label[]): Label[] {
+  const selectable = labels.filter(
+    (option) => block.end !== null || !isLabelArchived(option),
+  );
+
+  if (block.end === null) {
+    return [...selectable].sort(compareLabels);
+  }
+
+  const active = selectable.filter(
+    (option) => !isLabelArchived(option) && !isUnaccountedLabel(option),
+  );
+  const archived = selectable.filter(
+    (option) => isLabelArchived(option) && !isUnaccountedLabel(option),
+  );
+  const unaccounted = selectable.filter(isUnaccountedLabel);
+
+  const byName = (a: Label, b: Label) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+
+  return [
+    ...active.sort(byName),
+    ...archived.sort(byName),
+    ...unaccounted,
+  ];
+}
 
 function Icon({ children }: { children: React.ReactNode }) {
   return (
@@ -178,8 +213,20 @@ export default function BlocksSection({
   const [labelId, setLabelId] = useState<LabelId>("");
   const [error, setError] = useState<string | null>(null);
   const [isBlocksOpen, setIsBlocksOpen] = useState(true);
+  const splitInputRef = useRef<HTMLInputElement | null>(null);
+  const editLabelRef = useRef<HTMLSelectElement | null>(null);
 
   const labelMap = new Map(labels.map((label) => [label.id, label]));
+
+  useEffect(() => {
+    if (splittingId === null) return;
+    splitInputRef.current?.focus();
+  }, [splittingId]);
+
+  useEffect(() => {
+    if (editingId === null) return;
+    editLabelRef.current?.focus();
+  }, [editingId]);
 
   const todaysBlocks = blocks
     .filter((block) => block.start >= dayStart && block.start < dayEnd)
@@ -192,8 +239,14 @@ export default function BlocksSection({
   };
 
   const startSplitting = (block: Block) => {
+    const effectiveEnd = block.end ?? now;
+    const midpoint = block.start + Math.floor((effectiveEnd - block.start) / 2);
+    const min = block.start + 1;
+    const max = effectiveEnd - 1;
+    const clampedAt = Math.min(Math.max(midpoint, min), Math.max(min, max));
+
     setSplittingId(block.id);
-    setSplitText("");
+    setSplitText(formatClock(clampedAt - dayStart));
     setSplitError(null);
   };
 
@@ -327,14 +380,14 @@ export default function BlocksSection({
                         <BlockMenu
                           items={[
                             {
-                              label: "Edit",
-                              icon: <PencilIcon />,
-                              onSelect: () => startEditing(block),
-                            },
-                            {
                               label: "Split",
                               icon: <ScissorsIcon />,
                               onSelect: () => startSplitting(block),
+                            },
+                            {
+                              label: "Edit",
+                              icon: <PencilIcon />,
+                              onSelect: () => startEditing(block),
                             },
                           ]}
                         />
@@ -349,10 +402,14 @@ export default function BlocksSection({
                         <label className="grid gap-1 text-xs text-neutral-400">
                           Split at
                           <input
+                            ref={splitInputRef}
                             value={splitText}
                             aria-invalid={splitError !== null}
+                            inputMode="numeric"
+                            placeholder="HH:MM:SS"
+                            maxLength={8}
                             onChange={(event) => {
-                              setSplitText(event.target.value);
+                              setSplitText(formatSplitClockInput(event.target.value));
                               setSplitError(null);
                             }}
                             className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 font-mono text-sm text-neutral-100 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
@@ -390,21 +447,16 @@ export default function BlocksSection({
                           <label className="grid gap-1 text-xs text-neutral-400">
                             Label
                             <select
+                              ref={editLabelRef}
                               value={labelId}
                               onChange={(event) => setLabelId(event.target.value)}
                               className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 text-sm text-neutral-100"
                             >
-                              {labels
-                                .filter(
-                                  (option) =>
-                                    block.end !== null ||
-                                    !isLabelArchived(option),
-                                )
-                                .map((option) => (
-                                  <option key={option.id} value={option.id}>
-                                    {option.name}
-                                  </option>
-                                ))}
+                              {getEditLabelOptions(block, labels).map((option) => (
+                                <option key={option.id} value={option.id}>
+                                  {option.name}
+                                </option>
+                              ))}
                             </select>
                           </label>
                         </div>
