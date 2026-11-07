@@ -160,10 +160,15 @@ export default function AccountScreen({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(0,0,0,0.8)] p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-[rgba(0,0,0,0.8)] p-6"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
           event.preventDefault()
+        }
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose()
         }
       }}
     >
@@ -171,16 +176,18 @@ export default function AccountScreen({
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-label="Account"
+        aria-labelledby="account-dialog-title"
         onKeyDown={handleKeyDown}
         className="w-full max-w-md rounded-2xl border border-neutral-800 bg-neutral-900 p-6 text-neutral-100 shadow-xl"
       >
         <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
-          <h2 className="text-lg font-semibold text-neutral-50">Account</h2>
+          <h2 id="account-dialog-title" className="text-lg font-semibold text-neutral-50">
+            Account
+          </h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-neutral-700 px-2.5 py-1 text-xs text-neutral-300 hover:border-neutral-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
+            className="min-h-8 rounded-lg border border-neutral-700 px-2.5 py-1 text-xs text-neutral-300 hover:border-neutral-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
           >
             Close
           </button>
@@ -289,10 +296,20 @@ export default function AccountScreen({
                   </label>
                   <input
                     id="account-email"
+                    name="email"
                     type="email"
-                    aria-label="Email"
+                    inputMode="email"
+                    autoComplete="email"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
+                    enterKeyHint="send"
                     required
                     autoFocus
+                    aria-invalid={errorMessage !== null}
+                    aria-describedby={
+                      errorMessage ? 'account-email-error' : undefined
+                    }
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com"
@@ -300,7 +317,11 @@ export default function AccountScreen({
                   />
                 </div>
                 {errorMessage ? (
-                  <p role="alert" className="text-xs text-red-400">
+                  <p
+                    id="account-email-error"
+                    role="alert"
+                    className="text-xs text-red-400"
+                  >
                     {errorMessage}
                   </p>
                 ) : null}

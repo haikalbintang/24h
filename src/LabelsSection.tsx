@@ -244,11 +244,11 @@ export default function LabelsSection({
             aria-expanded={isLabelsOpen}
             aria-controls="labels-panel"
             onClick={() => setIsLabelsOpen((open) => !open)}
-            className="flex items-center gap-2 uppercase hover:text-neutral-200 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
+            className="flex min-h-6 items-center gap-2 py-1 uppercase hover:text-neutral-200 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
           >
             <span
               aria-hidden="true"
-              className={`inline-block transition-transform ${isLabelsOpen ? "rotate-90" : ""}`}
+              className={`inline-block motion-safe:transition-transform ${isLabelsOpen ? "rotate-90" : ""}`}
             >
               ▸
             </span>
@@ -267,7 +267,7 @@ export default function LabelsSection({
                 <>
                   <span
                     aria-hidden="true"
-                    className={`h-4 w-4 shrink-0 ${UNACCOUNTED_MARKER_CLASS}`}
+                    className={`h-4 w-4 shrink-0 forced-color-adjust-none ${UNACCOUNTED_MARKER_CLASS}`}
                   />
                   {activeLabel.name}
                 </>
@@ -275,7 +275,7 @@ export default function LabelsSection({
                 <>
                   <span
                     aria-hidden="true"
-                    className="h-4 w-4 rounded-full"
+                    className="h-4 w-4 rounded-full forced-color-adjust-none"
                     style={{
                       backgroundColor: getLabelColour(activeLabel.colourId).value,
                     }}
@@ -287,7 +287,7 @@ export default function LabelsSection({
               <>
                 <span
                   aria-hidden="true"
-                  className={`h-4 w-4 shrink-0 ${UNACCOUNTED_MARKER_CLASS}`}
+                  className={`h-4 w-4 shrink-0 forced-color-adjust-none ${UNACCOUNTED_MARKER_CLASS}`}
                 />
                 Unaccounted
               </>
@@ -308,7 +308,7 @@ export default function LabelsSection({
           ) : null}
 
           <ul aria-label="Labels" className="flex flex-wrap gap-3">
-            {sortedLabels.map((label) => {
+            {sortedLabels.map((label, index) => {
               const colour = getLabelColour(label.colourId);
               const unaccounted = isUnaccountedLabel(label);
 
@@ -317,6 +317,7 @@ export default function LabelsSection({
                   <button
                     type="button"
                     aria-pressed={activeLabelId === label.id}
+                    aria-keyshortcuts={index < 9 ? String(index + 1) : undefined}
                     aria-describedby={`label-${label.id}-colour`}
                     onClick={() => onToggleLabel(label.id)}
                     className="flex items-center gap-2 rounded-full border border-neutral-700 bg-neutral-900 px-4 py-2 text-sm font-medium text-neutral-200 hover:border-neutral-500 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600 aria-pressed:border-neutral-200 aria-pressed:bg-neutral-100 aria-pressed:text-neutral-950"
@@ -325,8 +326,8 @@ export default function LabelsSection({
                       aria-hidden="true"
                       className={
                         unaccounted
-                          ? `h-3 w-3 shrink-0 ${UNACCOUNTED_MARKER_CLASS}`
-                          : "h-3 w-3 rounded-full"
+                          ? `h-3 w-3 shrink-0 forced-color-adjust-none ${UNACCOUNTED_MARKER_CLASS}`
+                          : "h-3 w-3 rounded-full forced-color-adjust-none"
                       }
                       style={
                         unaccounted ? undefined : { backgroundColor: colour.value }
@@ -374,9 +375,14 @@ export default function LabelsSection({
                 </label>
                 <input
                   id="new-label-name"
+                  name="label-name"
+                  autoComplete="off"
                   autoFocus
                   value={newLabelName}
                   aria-invalid={createError !== null}
+                  aria-describedby={
+                    createError ? "new-label-name-error" : undefined
+                  }
                   onChange={(event) => {
                     setNewLabelName(event.target.value);
                     setCreateError(null);
@@ -384,7 +390,11 @@ export default function LabelsSection({
                   className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-neutral-400 focus-visible:ring-2 focus-visible:ring-neutral-600"
                 />
                 {createError ? (
-                  <p role="alert" className="text-sm text-red-400">
+                  <p
+                    id="new-label-name-error"
+                    role="alert"
+                    className="text-sm text-red-400"
+                  >
                     {createError}
                   </p>
                 ) : null}
@@ -419,11 +429,11 @@ export default function LabelsSection({
                 aria-expanded={isManageOpen}
                 aria-controls="manage-labels-panel"
                 onClick={() => setIsManageOpen((open) => !open)}
-                className="flex items-center gap-2 uppercase hover:text-neutral-300"
+                className="flex min-h-6 items-center gap-2 py-1 uppercase hover:text-neutral-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
               >
                 <span
                   aria-hidden="true"
-                  className={`inline-block transition-transform ${isManageOpen ? "rotate-90" : ""}`}
+                  className={`inline-block motion-safe:transition-transform ${isManageOpen ? "rotate-90" : ""}`}
                 >
                   ▸
                 </span>
@@ -462,8 +472,15 @@ export default function LabelsSection({
                                 </label>
                                 <input
                                   id={`edit-label-name-${label.id}`}
+                                  name="label-name"
+                                  autoComplete="off"
                                   value={editLabelName}
                                   aria-invalid={editError !== null}
+                                  aria-describedby={
+                                    editError
+                                      ? `edit-label-name-error-${label.id}`
+                                      : undefined
+                                  }
                                   onChange={(event) => {
                                     setEditLabelName(event.target.value);
                                     setEditError(null);
@@ -471,7 +488,11 @@ export default function LabelsSection({
                                   className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-neutral-400 focus-visible:ring-2 focus-visible:ring-neutral-600"
                                 />
                                 {editError ? (
-                                  <p role="alert" className="text-sm text-red-400">
+                                  <p
+                                    id={`edit-label-name-error-${label.id}`}
+                                    role="alert"
+                                    className="text-sm text-red-400"
+                                  >
                                     {editError}
                                   </p>
                                 ) : null}
@@ -502,7 +523,7 @@ export default function LabelsSection({
                               <div className="flex min-w-0 flex-1 items-center gap-2">
                                 <span
                                   aria-hidden="true"
-                                  className="h-3 w-3 shrink-0 rounded-full"
+                                  className="h-3 w-3 shrink-0 rounded-full forced-color-adjust-none"
                                   style={{ backgroundColor: colour.value }}
                                 />
                                 <span className="truncate text-sm font-medium text-neutral-100">
@@ -511,6 +532,11 @@ export default function LabelsSection({
                                 <span className="hidden shrink-0 text-xs text-neutral-500 sm:inline">
                                   {colour.name}
                                 </span>
+                                {isLabelArchived(label) ? (
+                                  <span className="shrink-0 rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-[11px] font-medium text-neutral-400">
+                                    Archived
+                                  </span>
+                                ) : null}
                               </div>
                               <div className="flex shrink-0 items-center gap-1 sm:gap-2">
                                 <button

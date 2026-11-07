@@ -55,7 +55,7 @@ export default function ReopenPrompt({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(0,0,0,0.8)] p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-[rgba(0,0,0,0.8)] p-6"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
           event.preventDefault();
@@ -67,6 +67,7 @@ export default function ReopenPrompt({
         role="dialog"
         aria-modal="true"
         aria-labelledby="reopen-prompt-title"
+        aria-describedby="reopen-prompt-description"
         onKeyDown={handleKeyDown}
         className="w-full max-w-md rounded-2xl border border-neutral-800 bg-neutral-900 p-6"
       >
@@ -76,18 +77,20 @@ export default function ReopenPrompt({
         >
           You were away
         </h2>
-        <p className="mt-3 text-sm text-neutral-300">
-          No heartbeat was recorded for over two minutes.
-        </p>
-        {labelName ? (
-          <p className="mt-1 text-sm text-neutral-400">
-            Your Block for {labelName} is still open.
+        <div id="reopen-prompt-description">
+          <p className="mt-3 text-sm text-neutral-300">
+            No heartbeat was recorded for over two minutes.
           </p>
-        ) : (
-          <p className="mt-1 text-sm text-neutral-400">
-            Your Block is still open.
-          </p>
-        )}
+          {labelName ? (
+            <p className="mt-1 text-sm text-neutral-400">
+              Your Block for {labelName} is still open.
+            </p>
+          ) : (
+            <p className="mt-1 text-sm text-neutral-400">
+              Your Block is still open.
+            </p>
+          )}
+        </div>
         <div className="mt-6 flex flex-wrap gap-3">
           <button
             type="button"

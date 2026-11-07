@@ -32,7 +32,7 @@ export interface AppProps {
 }
 
 const exportButtonClass =
-  "rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 transition-colors hover:border-neutral-500 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600";
+  "min-h-8 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 transition-colors hover:border-neutral-500 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600";
 
 const themeToggleButtonClass =
   "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-900 text-neutral-200 transition-colors hover:border-neutral-500 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600";
@@ -45,6 +45,7 @@ interface ExportMenuProps {
 function ExportMenu({ onExportJson, onExportCsv }: ExportMenuProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLUListElement | null>(null);
 
   useEffect(() => {
@@ -56,8 +57,19 @@ function ExportMenu({ onExportJson, onExportCsv }: ExportMenuProps) {
       }
     };
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-      if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+      if (event.key === "Escape") {
+        setOpen(false);
+        triggerRef.current?.focus();
+        return;
+      }
+      if (
+        event.key !== "ArrowDown" &&
+        event.key !== "ArrowUp" &&
+        event.key !== "Home" &&
+        event.key !== "End"
+      ) {
+        return;
+      }
 
       const menu = menuRef.current;
       if (menu === null) return;
@@ -67,6 +79,17 @@ function ExportMenu({ onExportJson, onExportCsv }: ExportMenuProps) {
       ).filter((button) => !button.disabled);
 
       if (menuItems.length === 0) return;
+
+      event.preventDefault();
+
+      if (event.key === "Home") {
+        menuItems[0]?.focus();
+        return;
+      }
+      if (event.key === "End") {
+        menuItems[menuItems.length - 1]?.focus();
+        return;
+      }
 
       const currentIndex = menuItems.findIndex(
         (button) => button === document.activeElement,
@@ -96,6 +119,7 @@ function ExportMenu({ onExportJson, onExportCsv }: ExportMenuProps) {
   return (
     <div ref={containerRef} className="relative">
       <button
+        ref={triggerRef}
         type="button"
         aria-label="Export"
         aria-haspopup="menu"
@@ -678,11 +702,11 @@ export default function App({ runtime }: AppProps) {
 
   return (
     <main
-      className="min-h-screen bg-neutral-950 text-neutral-100"
+      className="min-h-screen min-h-dvh bg-neutral-950 text-neutral-100"
       data-theme={persisted.device.theme}
     >
       <div
-        className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-6 py-8 sm:px-10"
+        className="mx-auto flex min-h-screen min-h-dvh w-full max-w-5xl flex-col px-6 py-8 sm:px-10"
         inert={reopenPromptOpen || accountOpen || firstSignIn !== null}
       >
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-800 pb-5">
@@ -713,7 +737,7 @@ export default function App({ runtime }: AppProps) {
                 const index = Number(event.target.value);
                 setPickedDayIndex(index === day.dayIndex ? null : index);
               }}
-              className="rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 transition-colors hover:border-neutral-500 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
+              className="min-h-8 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 transition-colors hover:border-neutral-500 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
             >
               {dayOptions.map((option) => (
                 <option key={option.dayIndex} value={option.dayIndex}>
@@ -723,13 +747,15 @@ export default function App({ runtime }: AppProps) {
             </select>
             <ExportMenu onExportJson={exportJson} onExportCsv={exportCsv} />
           </div>
-          <p className="w-full text-xs text-neutral-500">
-            No import is available; an exported file cannot be restored here.
-          </p>
-          <p className="w-full text-xs text-neutral-500">
-            Clearing site data is permanent and cannot be undone; keep an export
-            as a backup.
-          </p>
+          <div className="flex w-full flex-col gap-0.5 text-xs text-neutral-500">
+            <p>
+              No import is available; an exported file cannot be restored here.
+            </p>
+            <p>
+              Clearing site data is permanent and cannot be undone; keep an export
+              as a backup.
+            </p>
+          </div>
         </header>
 
         <section className="flex flex-1 flex-col items-center justify-center py-16">
@@ -777,8 +803,9 @@ export default function App({ runtime }: AppProps) {
       {archiveUndoVisible || undoError ? (
         <div
           role="status"
+          aria-live="polite"
           aria-label="Undo"
-          className="fixed bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-3 rounded-lg border border-neutral-700 bg-neutral-900 px-4 py-2 text-sm"
+          className="fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-lg border border-neutral-700 bg-neutral-900 px-4 py-2 text-sm shadow-lg"
         >
           {archiveUndoVisible ? (
             <>
@@ -786,7 +813,7 @@ export default function App({ runtime }: AppProps) {
               <button
                 type="button"
                 onClick={() => setUndoError(undoArchive())}
-                className="font-semibold text-neutral-100 underline focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
+                className="min-h-6 px-1 font-semibold text-neutral-100 underline focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
               >
                 Undo
               </button>

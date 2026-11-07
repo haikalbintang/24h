@@ -100,6 +100,7 @@ interface BlockMenuItem {
 function BlockMenu({ items }: { items: BlockMenuItem[] }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLUListElement | null>(null);
 
   useEffect(() => {
@@ -111,8 +112,19 @@ function BlockMenu({ items }: { items: BlockMenuItem[] }) {
       }
     };
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-      if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+      if (event.key === "Escape") {
+        setOpen(false);
+        triggerRef.current?.focus();
+        return;
+      }
+      if (
+        event.key !== "ArrowDown" &&
+        event.key !== "ArrowUp" &&
+        event.key !== "Home" &&
+        event.key !== "End"
+      ) {
+        return;
+      }
 
       const menu = menuRef.current;
       if (menu === null) return;
@@ -122,6 +134,17 @@ function BlockMenu({ items }: { items: BlockMenuItem[] }) {
       ).filter((button) => !button.disabled);
 
       if (menuItems.length === 0) return;
+
+      event.preventDefault();
+
+      if (event.key === "Home") {
+        menuItems[0]?.focus();
+        return;
+      }
+      if (event.key === "End") {
+        menuItems[menuItems.length - 1]?.focus();
+        return;
+      }
 
       const currentIndex = menuItems.findIndex(
         (button) => button === document.activeElement,
@@ -151,6 +174,7 @@ function BlockMenu({ items }: { items: BlockMenuItem[] }) {
   return (
     <div ref={containerRef} className="relative">
       <button
+        ref={triggerRef}
         type="button"
         aria-label="Block actions"
         aria-haspopup="menu"
@@ -306,11 +330,11 @@ export default function BlocksSection({
           aria-expanded={isBlocksOpen}
           aria-controls="blocks-panel"
           onClick={() => setIsBlocksOpen((open) => !open)}
-          className="flex items-center gap-2 uppercase hover:text-neutral-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
+          className="flex min-h-6 items-center gap-2 py-1 uppercase hover:text-neutral-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
         >
           <span
             aria-hidden="true"
-            className={`inline-block transition-transform ${isBlocksOpen ? "rotate-90" : ""}`}
+            className={`inline-block motion-safe:transition-transform ${isBlocksOpen ? "rotate-90" : ""}`}
           >
             ▸
           </span>
@@ -351,16 +375,16 @@ export default function BlocksSection({
                           isUnaccountedLabelId(block.labelId) ? (
                             <span
                               aria-hidden="true"
-                              className={`h-3 w-3 shrink-0 ${UNACCOUNTED_MARKER_CLASS}`}
+                              className={`h-3 w-3 shrink-0 forced-color-adjust-none ${UNACCOUNTED_MARKER_CLASS}`}
                             />
                           ) : (
                             <span
                               aria-hidden="true"
-                              className="relative flex h-3 w-3 shrink-0"
+                              className="relative flex h-3 w-3 shrink-0 forced-color-adjust-none"
                             >
                               {block.end === null ? (
                                 <span
-                                  className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
+                                  className="absolute inline-flex h-full w-full rounded-full opacity-75 motion-safe:animate-ping"
                                   style={{ backgroundColor: colour.value }}
                                 />
                               ) : null}
@@ -413,12 +437,21 @@ export default function BlocksSection({
                         onSubmit={(event) => saveSplit(event, block)}
                         className="grid w-full gap-3 pt-2"
                       >
-                        <label className="grid gap-1 text-xs text-neutral-400">
+                        <label
+                          htmlFor={`split-at-${block.id}`}
+                          className="grid gap-1 text-xs text-neutral-400"
+                        >
                           Split at
                           <input
+                            id={`split-at-${block.id}`}
+                            name="split-at"
+                            autoComplete="off"
                             ref={splitInputRef}
                             value={splitText}
                             aria-invalid={splitError !== null}
+                            aria-describedby={
+                              splitError ? `split-error-${block.id}` : undefined
+                            }
                             inputMode="numeric"
                             placeholder="HH:MM:SS"
                             maxLength={8}
@@ -430,7 +463,11 @@ export default function BlocksSection({
                           />
                         </label>
                         {splitError ? (
-                          <p role="alert" className="text-sm text-red-400">
+                          <p
+                            id={`split-error-${block.id}`}
+                            role="alert"
+                            className="text-sm text-red-400"
+                          >
                             {splitError}
                           </p>
                         ) : null}
@@ -458,13 +495,22 @@ export default function BlocksSection({
                         className="grid w-full gap-3 pt-2"
                       >
                         <div className="flex flex-wrap gap-3">
-                          <label className="grid gap-1 text-xs text-neutral-400">
+                          <label
+                            htmlFor={`edit-block-label-${block.id}`}
+                            className="grid gap-1 text-xs text-neutral-400"
+                          >
                             Label
                             <select
+                              id={`edit-block-label-${block.id}`}
+                              name="label"
                               ref={editLabelRef}
                               value={labelId}
+                              aria-invalid={error !== null}
+                              aria-describedby={
+                                error ? `edit-block-error-${block.id}` : undefined
+                              }
                               onChange={(event) => setLabelId(event.target.value)}
-                              className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 text-sm text-neutral-100"
+                              className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-1.5 text-sm text-neutral-100 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
                             >
                               {getEditLabelOptions(block, labels).map((option) => (
                                 <option key={option.id} value={option.id}>
@@ -475,7 +521,11 @@ export default function BlocksSection({
                           </label>
                         </div>
                         {error ? (
-                          <p role="alert" className="text-sm text-red-400">
+                          <p
+                            id={`edit-block-error-${block.id}`}
+                            role="alert"
+                            className="text-sm text-red-400"
+                          >
                             {error}
                           </p>
                         ) : null}

@@ -157,20 +157,23 @@ export default function TotalsSection(props: TotalsSectionProps) {
 
   return (
     <section
-      aria-label="Totals"
+      aria-labelledby="totals-heading"
       className="mt-6 border-t border-neutral-800 pt-6"
     >
-      <h2 className="text-xs font-semibold tracking-[0.28em] text-neutral-400 uppercase">
+      <h2
+        id="totals-heading"
+        className="text-xs font-semibold tracking-[0.28em] text-neutral-400 uppercase"
+      >
         <button
           type="button"
           aria-expanded={isTotalsOpen}
           aria-controls="totals-panel"
           onClick={() => setIsTotalsOpen((open) => !open)}
-          className="flex items-center gap-2 uppercase hover:text-neutral-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
+          className="flex min-h-6 items-center gap-2 py-1 uppercase hover:text-neutral-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
         >
           <span
             aria-hidden="true"
-            className={`inline-block transition-transform ${isTotalsOpen ? "rotate-90" : ""}`}
+            className={`inline-block motion-safe:transition-transform ${isTotalsOpen ? "rotate-90" : ""}`}
           >
             ▸
           </span>
@@ -187,7 +190,7 @@ export default function TotalsSection(props: TotalsSectionProps) {
                 <div
                   role="img"
                   aria-label="Selected day pie chart"
-                  className="aspect-square w-full max-w-64 shrink-0 rounded-full border border-neutral-700 bg-neutral-950 shadow-inner sm:h-56 sm:w-56 sm:max-w-none md:h-72 md:w-72 lg:h-86 lg:w-86"
+                  className="aspect-square w-full max-w-64 shrink-0 rounded-full border border-neutral-700 bg-neutral-950 shadow-inner forced-color-adjust-none sm:h-56 sm:w-56 sm:max-w-none md:h-72 md:w-72 lg:h-86 lg:w-86"
                   style={{ backgroundImage: pieBackground }}
                 />
               </div>
@@ -207,7 +210,7 @@ export default function TotalsSection(props: TotalsSectionProps) {
                       <span className="flex min-w-0 items-center gap-2">
                         <span
                           aria-hidden="true"
-                          className="h-3 w-3 shrink-0 rounded-full"
+                          className="h-3 w-3 shrink-0 rounded-full forced-color-adjust-none"
                           style={{
                             backgroundColor: getLabelColour(label.colourId).value,
                           }}
@@ -224,7 +227,7 @@ export default function TotalsSection(props: TotalsSectionProps) {
                   <span className="flex min-w-0 items-center gap-2">
                     <span
                       aria-hidden="true"
-                      className={`h-3 w-3 shrink-0 ${UNACCOUNTED_MARKER_CLASS}`}
+                      className={`h-3 w-3 shrink-0 forced-color-adjust-none ${UNACCOUNTED_MARKER_CLASS}`}
                     />
                     <span className="truncate">Unaccounted: </span>
                   </span>
@@ -255,12 +258,18 @@ export default function TotalsSection(props: TotalsSectionProps) {
                   : label
                     ? getLabelColour(label.colourId).value
                     : undefined;
+                const segmentName = isUnaccountedLabelId(segment.labelId)
+                  ? "Unaccounted"
+                  : (label?.name ?? "Unknown");
+                const segmentSummary = `${segmentName}: ${formatClock(segment.start - props.dayStart)} – ${formatClock(segment.end - props.dayStart)}`;
 
                 return (
                   <li
                     key={`${segment.labelId}-${segment.start}`}
                     data-label={segment.labelId ?? undefined}
-                    className="absolute top-0 h-full"
+                    aria-label={segmentSummary}
+                    title={segmentSummary}
+                    className="absolute top-0 h-full forced-color-adjust-none"
                     style={{
                       left: `${left}%`,
                       width: `${width}%`,
@@ -272,7 +281,8 @@ export default function TotalsSection(props: TotalsSectionProps) {
               {future ? (
                 <li
                   data-future="true"
-                  className="absolute top-0 h-full"
+                  aria-label="Future"
+                  className="absolute top-0 h-full forced-color-adjust-none"
                   style={{
                     left: `${((futureStart - props.dayStart) / DAY_MS) * 100}%`,
                     width: `${((props.dayEnd - futureStart) / DAY_MS) * 100}%`,
@@ -298,104 +308,110 @@ export default function TotalsSection(props: TotalsSectionProps) {
               Seven day totals
             </h3>
             <div
-              aria-label="Seven day totals"
-              role="table"
-              className="grid gap-2 text-sm"
+              tabIndex={0}
+              className="overflow-x-auto rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
             >
               <div
-                role="row"
-                className="grid items-end gap-2 text-[11px] font-medium text-neutral-500"
-                style={{
-                  gridTemplateColumns:
-                    "minmax(6rem, 1.2fr) repeat(7, minmax(0, 1fr)) minmax(3.5rem, auto) minmax(3.5rem, auto)",
-                }}
+                aria-label="Seven day totals"
+                role="table"
+                className="grid min-w-[28rem] gap-2 text-sm"
               >
-                <span role="columnheader">Label</span>
-                {dayHeaders.map((day) => (
-                  <span
-                    key={day.dayIndex}
-                    role="columnheader"
-                    className="text-center"
-                    title={day.label}
-                  >
-                    {day.label}
-                  </span>
-                ))}
-                <span role="columnheader" className="text-right">
-                  Avg
-                </span>
-                <span role="columnheader" className="text-right">
-                  Total
-                </span>
-              </div>
-              {[...labelRows, unaccountedRow].map((row) => (
                 <div
-                  key={row.key}
                   role="row"
-                  className="grid items-center gap-2 border-t border-neutral-800 pt-2"
+                  className="grid items-end gap-2 text-[11px] font-medium text-neutral-500"
                   style={{
                     gridTemplateColumns:
-                      "minmax(6rem, 1.2fr) repeat(7, minmax(0, 1fr)) minmax(3.5rem, auto) minmax(3.5rem, auto)",
+                      "minmax(6rem, 1.2fr) repeat(7, minmax(2.25rem, 1fr)) minmax(3.5rem, auto) minmax(3.5rem, auto)",
                   }}
                 >
-                  <span
-                    role="cell"
-                    className="flex min-w-0 items-center gap-2 text-neutral-200"
+                  <span role="columnheader">Label</span>
+                  {dayHeaders.map((day) => (
+                    <span
+                      key={day.dayIndex}
+                      role="columnheader"
+                      className="text-center"
+                      title={day.label}
+                    >
+                      {day.label}
+                    </span>
+                  ))}
+                  <span role="columnheader" className="text-right">
+                    Avg
+                  </span>
+                  <span role="columnheader" className="text-right">
+                    Total
+                  </span>
+                </div>
+                {[...labelRows, unaccountedRow].map((row) => (
+                  <div
+                    key={row.key}
+                    role="row"
+                    className="grid items-center gap-2 border-t border-neutral-800 pt-2"
+                    style={{
+                      gridTemplateColumns:
+                        "minmax(6rem, 1.2fr) repeat(7, minmax(2.25rem, 1fr)) minmax(3.5rem, auto) minmax(3.5rem, auto)",
+                    }}
                   >
                     <span
-                      aria-hidden="true"
-                      className={
-                        row.unaccounted
-                          ? `h-3 w-3 shrink-0 ${UNACCOUNTED_MARKER_CLASS}`
-                          : "h-3 w-3 shrink-0 rounded-full"
-                      }
-                      style={
-                        row.unaccounted || !row.colourId
-                          ? undefined
-                          : {
-                              backgroundColor: getLabelColour(row.colourId)
-                                .value,
-                            }
-                      }
-                    />
-                    <span className="truncate">{row.name}</span>
-                  </span>
-                  {row.dailyMs.map((ms, i) => (
-                    <span
-                      key={dayHeaders[i].dayIndex}
                       role="cell"
-                      className="flex h-5 items-end rounded-sm bg-neutral-950/80"
-                      title={`${dayHeaders[i].label}: ${formatClock(ms)}`}
+                      className="flex min-w-0 items-center gap-2 text-neutral-200"
                     >
                       <span
                         aria-hidden="true"
-                        className="w-full rounded-sm"
-                        style={{
-                          height: `${Math.max(0, Math.min(100, (ms / DAY_MS) * 100))}%`,
-                          minHeight: ms > 0 ? "2px" : undefined,
-                          backgroundColor: row.unaccounted
-                            ? UNACCOUNTED_VISUAL_COLOUR
-                            : row.colourId
-                              ? getLabelColour(row.colourId).value
-                              : undefined,
-                        }}
+                        className={
+                          row.unaccounted
+                            ? `h-3 w-3 shrink-0 forced-color-adjust-none ${UNACCOUNTED_MARKER_CLASS}`
+                            : "h-3 w-3 shrink-0 rounded-full forced-color-adjust-none"
+                        }
+                        style={
+                          row.unaccounted || !row.colourId
+                            ? undefined
+                            : {
+                                backgroundColor: getLabelColour(row.colourId)
+                                  .value,
+                              }
+                        }
                       />
+                      <span className="truncate">{row.name}</span>
                     </span>
-                  ))}
-                  <span
-                    role="cell"
-                    className="text-right font-mono text-xs tabular-nums text-neutral-400"
-                  >
-                    {formatClock(Math.round(row.totalMs / seven.length))}
-                  </span>
-                  <span
-                    role="cell"
-                    className="text-right font-mono text-xs tabular-nums text-neutral-200"
-                  >
-                    {formatClock(row.totalMs)}
-                  </span>
-                </div>
-              ))}
+                    {row.dailyMs.map((ms, i) => (
+                      <span
+                        key={dayHeaders[i].dayIndex}
+                        role="cell"
+                        aria-label={`${dayHeaders[i].label}: ${formatClock(ms)}`}
+                        className="flex h-5 items-end rounded-sm bg-neutral-950/80"
+                        title={`${dayHeaders[i].label}: ${formatClock(ms)}`}
+                      >
+                        <span
+                          aria-hidden="true"
+                          className="w-full rounded-sm forced-color-adjust-none"
+                          style={{
+                            height: `${Math.max(0, Math.min(100, (ms / DAY_MS) * 100))}%`,
+                            minHeight: ms > 0 ? "2px" : undefined,
+                            backgroundColor: row.unaccounted
+                              ? UNACCOUNTED_VISUAL_COLOUR
+                              : row.colourId
+                                ? getLabelColour(row.colourId).value
+                                : undefined,
+                          }}
+                        />
+                      </span>
+                    ))}
+                    <span
+                      role="cell"
+                      className="text-right font-mono text-xs tabular-nums text-neutral-400"
+                    >
+                      {formatClock(Math.round(row.totalMs / seven.length))}
+                    </span>
+                    <span
+                      role="cell"
+                      className="text-right font-mono text-xs tabular-nums text-neutral-200"
+                    >
+                      {formatClock(row.totalMs)}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>

@@ -6,12 +6,24 @@
 }
 
 :root {
-  color-scheme: dark;
+  color-scheme: dark light;
+  --color-neutral-500: #8a8a8a;
+  --color-neutral-700: #525252;
+  accent-color: var(--color-neutral-200);
+  scrollbar-color: var(--color-neutral-600) var(--color-neutral-950);
   font-family: var(--font-sans);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+:root:has([data-theme='dark']) {
+  color-scheme: dark;
+}
+
+:root:has([data-theme='light']) {
+  color-scheme: light;
 }
 
 /*
@@ -27,9 +39,9 @@
   --color-neutral-200: #404040;
   --color-neutral-300: #525252;
   --color-neutral-400: #525252;
-  --color-neutral-500: #737373;
+  --color-neutral-500: #595959;
   --color-neutral-600: #404040;
-  --color-neutral-700: #d4d4d4;
+  --color-neutral-700: #737373;
   --color-neutral-800: #e5e5e5;
   --color-neutral-900: #ffffff;
   --color-neutral-950: #f5f5f5;
@@ -37,6 +49,8 @@
   --color-red-400: #dc2626;
   --color-red-700: #b91c1c;
   --color-red-900: #7f1d1d;
+  accent-color: var(--color-neutral-200);
+  scrollbar-color: var(--color-neutral-500) var(--color-neutral-950);
 }
 
 html,
@@ -47,4 +61,48 @@ body,
 
 body {
   margin: 0;
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
+  max-width: 80ch;
+}
+
+[inert],
+[inert] * {
+  opacity: 0.5;
+  cursor: default;
+  user-select: none;
+}
+
+dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+@media (forced-colors: active) {
+  :where(a:any-link, button, input, select, textarea, [tabindex]:not([tabindex='-1'])):focus-visible {
+    outline: 2px solid CanvasText;
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }
