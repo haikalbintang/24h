@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import ColourRadioGroup from "./ColourRadioGroup";
 import {
+  UNACCOUNTED_MARKER_CLASS,
   compareLabels,
   getLabelColour,
   isLabelArchived,
@@ -262,18 +263,34 @@ export default function LabelsSection({
             className="flex items-center gap-2 text-lg font-medium text-neutral-100"
           >
             {activeLabel ? (
+              isUnaccountedLabel(activeLabel) ? (
+                <>
+                  <span
+                    aria-hidden="true"
+                    className={`h-4 w-4 shrink-0 ${UNACCOUNTED_MARKER_CLASS}`}
+                  />
+                  {activeLabel.name}
+                </>
+              ) : (
+                <>
+                  <span
+                    aria-hidden="true"
+                    className="h-4 w-4 rounded-full"
+                    style={{
+                      backgroundColor: getLabelColour(activeLabel.colourId).value,
+                    }}
+                  />
+                  {activeLabel.name}
+                </>
+              )
+            ) : (
               <>
                 <span
                   aria-hidden="true"
-                  className="h-4 w-4 rounded-full"
-                  style={{
-                    backgroundColor: getLabelColour(activeLabel.colourId).value,
-                  }}
+                  className={`h-4 w-4 shrink-0 ${UNACCOUNTED_MARKER_CLASS}`}
                 />
-                {activeLabel.name}
+                Unaccounted
               </>
-            ) : (
-              "Unaccounted"
             )}
           </p>
           {activeLabel ? (
@@ -293,6 +310,7 @@ export default function LabelsSection({
           <ul aria-label="Labels" className="flex flex-wrap gap-3">
             {sortedLabels.map((label) => {
               const colour = getLabelColour(label.colourId);
+              const unaccounted = isUnaccountedLabel(label);
 
               return (
                 <li key={label.id}>
@@ -305,8 +323,14 @@ export default function LabelsSection({
                   >
                     <span
                       aria-hidden="true"
-                      className="h-3 w-3 rounded-full"
-                      style={{ backgroundColor: colour.value }}
+                      className={
+                        unaccounted
+                          ? `h-3 w-3 shrink-0 ${UNACCOUNTED_MARKER_CLASS}`
+                          : "h-3 w-3 rounded-full"
+                      }
+                      style={
+                        unaccounted ? undefined : { backgroundColor: colour.value }
+                      }
                     />
                     {label.name}
                   </button>

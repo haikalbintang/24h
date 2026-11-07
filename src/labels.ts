@@ -26,6 +26,13 @@ export const UNACCOUNTED_LABEL_ID: LabelId = 'label-unaccounted'
 export const UNACCOUNTED_LABEL_NAME = 'Unaccounted'
 export const UNACCOUNTED_LABEL_COLOUR_ID: LabelColourId = 'grey'
 
+/** Neutral fill used for Unaccounted in visualizations (pie, timeline). */
+export const UNACCOUNTED_VISUAL_COLOUR = '#525252'
+
+/** Dashed/hollow marker treatment for Unaccounted dots (matches selected-day totals). */
+export const UNACCOUNTED_MARKER_CLASS =
+  'rounded-full border border-dashed border-neutral-500'
+
 export function createUnaccountedLabel(updatedAt: number = 0): Label {
   return {
     id: UNACCOUNTED_LABEL_ID,

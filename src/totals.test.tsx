@@ -40,7 +40,7 @@ const selectedDayTotals = () =>
   screen.getByRole("list", { name: "Selected day totals" });
 
 const sevenDayTotals = () =>
-  screen.getByRole("list", { name: "Seven day totals" });
+  screen.getByRole("table", { name: "Seven day totals" });
 
 const timeline = () => screen.getByRole("list", { name: "Timeline" });
 
@@ -87,7 +87,7 @@ describe("Totals", () => {
     );
   });
 
-  it("shows per-label totals and the Unaccounted total for the selected Day and the previous six Days", async () => {
+  it("shows per-label rows for the 7-day window with Unaccounted last, bars, Avg, Total, and compact date headers", async () => {
     const { runtime, user } = setup(at("2026-03-08T05:00:00.000Z"));
 
     await createLabel(user, "Work");
@@ -96,14 +96,29 @@ describe("Totals", () => {
     await user.click(screen.getByRole("button", { name: "Work" }));
     act(() => runtime.clock.advance(30 * MINUTE_MS));
 
-    const days = within(sevenDayTotals()).getAllByRole("listitem");
+    const table = sevenDayTotals();
+    const rows = within(table).getAllByRole("row");
+    // header + Work + Unaccounted
+    expect(rows.length).toBeGreaterThanOrEqual(3);
 
-    expect(days).toHaveLength(7);
-    expect(days[6]).toHaveTextContent("Day 0");
-    expect(days[6]).toHaveTextContent("Work: 00:30:00");
-    expect(days[6]).toHaveTextContent("Unaccounted: 00:30:00");
-    expect(days[0]).toHaveTextContent("Day -6");
-    expect(days[0]).toHaveTextContent("Unaccounted: 24:00:00");
+    expect(table).not.toHaveTextContent(/^Day \d/m);
+    expect(table).not.toHaveTextContent("Day -");
+
+    const workRow = rows.find((row) => within(row).queryByText("Work"));
+    const unaccountedRow = rows.find(
+      (row, index) =>
+        index > 0 && within(row).queryByText("Unaccounted"),
+    );
+    expect(workRow).toBeDefined();
+    expect(unaccountedRow).toBeDefined();
+    expect(within(workRow!).getByText("00:30:00")).toBeInTheDocument();
+    expect(within(workRow!).getByText("00:04:17")).toBeInTheDocument(); // avg 30m/7
+
+    const dataRows = rows.slice(1);
+    expect(within(dataRows[dataRows.length - 1]).getByText("Unaccounted")).toBeInTheDocument();
+
+    expect(within(table).getByRole("columnheader", { name: "Avg" })).toBeInTheDocument();
+    expect(within(table).getByRole("columnheader", { name: "Total" })).toBeInTheDocument();
   });
 
   it("shows label-coloured timeline segments for the selected Day", async () => {
@@ -168,13 +183,16 @@ describe("Totals", () => {
     const pieStyle = pieChart().getAttribute("style") ?? "";
     expect(pieStyle).not.toMatch(/3b82f6|59,\s*130,\s*246/);
     expect(pieStyle).toMatch(/22c55e|34,\s*197,\s*94/); // Rest colour
-    expect(pieStyle).toMatch(/404040|64,\s*64,\s*64/); // Unaccounted colour
+    expect(pieStyle).toMatch(/525252|82,\s*82,\s*82/); // Unaccounted colour
 
-    // Seven day totals: Work is absent, Unaccounted is 30m
-    const days = within(sevenDayTotals()).getAllByRole("listitem");
-    expect(days[6]).not.toHaveTextContent("Work:");
-    expect(days[6]).toHaveTextContent("Rest: 00:30:00");
-    expect(days[6]).toHaveTextContent("Unaccounted: 00:30:00");
+    // Seven day totals: Work is absent, Rest shows 30m total, Unaccounted is last
+    const sevenRows = within(sevenDayTotals()).getAllByRole("row").slice(1);
+    expect(sevenDayTotals()).not.toHaveTextContent("Work");
+    const restRow = sevenRows.find((row) => within(row).queryByText("Rest"));
+    expect(restRow).toBeDefined();
+    expect(within(restRow!).getAllByText("00:30:00").length).toBeGreaterThan(0);
+    const lastRow = sevenRows[sevenRows.length - 1];
+    expect(within(lastRow).getByText("Unaccounted")).toBeInTheDocument();
 
     // Timeline: no segment for Work
     const segments = within(timeline())

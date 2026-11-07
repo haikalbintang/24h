@@ -2,7 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { formatClock, parseClock } from "./day";
 import { getBlockDuration } from "./blocks";
 import type { Block } from "./blocks";
-import { compareLabels, getLabelColour, isLabelArchived, isUnaccountedLabel } from "./labels";
+import {
+  UNACCOUNTED_MARKER_CLASS,
+  compareLabels,
+  getLabelColour,
+  isLabelArchived,
+  isUnaccountedLabel,
+  isUnaccountedLabelId,
+} from "./labels";
 import type { Label, LabelId } from "./labels";
 
 function formatSplitClockInput(value: string): string {
@@ -341,21 +348,28 @@ export default function BlocksSection({
                     <div className="flex min-w-0 items-center gap-2 text-xs sm:flex-wrap sm:justify-between sm:gap-3 sm:text-sm">
                       <div className="flex min-w-0 items-center gap-2 sm:shrink-0">
                         {colour ? (
-                          <span
-                            aria-hidden="true"
-                            className="relative flex h-3 w-3 shrink-0"
-                          >
-                            {block.end === null ? (
+                          isUnaccountedLabelId(block.labelId) ? (
+                            <span
+                              aria-hidden="true"
+                              className={`h-3 w-3 shrink-0 ${UNACCOUNTED_MARKER_CLASS}`}
+                            />
+                          ) : (
+                            <span
+                              aria-hidden="true"
+                              className="relative flex h-3 w-3 shrink-0"
+                            >
+                              {block.end === null ? (
+                                <span
+                                  className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
+                                  style={{ backgroundColor: colour.value }}
+                                />
+                              ) : null}
                               <span
-                                className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
+                                className="relative inline-flex h-3 w-3 rounded-full"
                                 style={{ backgroundColor: colour.value }}
                               />
-                            ) : null}
-                            <span
-                              className="relative inline-flex h-3 w-3 rounded-full"
-                              style={{ backgroundColor: colour.value }}
-                            />
-                          </span>
+                            </span>
+                          )
                         ) : null}
                         <span className="truncate font-medium text-neutral-100">
                           {label ? label.name : "Unknown"}

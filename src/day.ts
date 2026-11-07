@@ -8,6 +8,13 @@ export function formatDayLabel(midpoint: number): string {
   }).format(new Date(midpoint));
 }
 
+export function formatCompactDayLabel(midpoint: number): string {
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
+    day: "numeric",
+  }).format(new Date(midpoint));
+}
+
 export function localMidnightBefore(timestamp: number): number {
   const date = new Date(timestamp);
   date.setHours(0, 0, 0, 0);

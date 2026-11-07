@@ -1,6 +1,12 @@
 import { useState } from "react";
-import { DAY_MS, formatClock } from "./day";
-import { getLabelColour, isLabelArchived, isUnaccountedLabelId } from "./labels";
+import { DAY_MS, formatClock, formatCompactDayLabel } from "./day";
+import {
+  UNACCOUNTED_MARKER_CLASS,
+  UNACCOUNTED_VISUAL_COLOUR,
+  getLabelColour,
+  isLabelArchived,
+  isUnaccountedLabelId,
+} from "./labels";
 import type { Block } from "./blocks";
 import type { Label, LabelId } from "./labels";
 import {
@@ -54,8 +60,56 @@ export default function TotalsSection(props: TotalsSectionProps) {
   const futureStart = Math.min(props.now, props.dayEnd);
   const future = futureStart < props.dayEnd;
 
-  const labelName = (labelId: LabelId) =>
-    props.labels.find((label) => label.id === labelId)?.name ?? labelId;
+  const dayHeaders = seven.map((day) => ({
+    dayIndex: day.dayIndex,
+    label: formatCompactDayLabel(
+      props.anchor + day.dayIndex * DAY_MS + DAY_MS / 2,
+    ),
+  }));
+
+  type SevenDayRow = {
+    key: string;
+    name: string;
+    colourId?: Label["colourId"];
+    unaccounted?: boolean;
+    dailyMs: number[];
+    totalMs: number;
+  };
+
+  const byLabel = new Map<LabelId, number[]>();
+  for (let i = 0; i < seven.length; i++) {
+    for (const [labelId, ms] of seven[i].totals.entries()) {
+      if (!ms) continue;
+      let arr = byLabel.get(labelId);
+      if (!arr) {
+        arr = Array(seven.length).fill(0) as number[];
+        byLabel.set(labelId, arr);
+      }
+      arr[i] = ms;
+    }
+  }
+
+  const labelRows: SevenDayRow[] = Array.from(byLabel.entries())
+    .map(([labelId, dailyMs]) => {
+      const label = props.labels.find((l) => l.id === labelId);
+      return {
+        key: labelId,
+        name: label?.name ?? labelId,
+        colourId: label?.colourId,
+        dailyMs,
+        totalMs: dailyMs.reduce((a, b) => a + b, 0),
+      };
+    })
+    .sort((a, b) => b.totalMs - a.totalMs);
+
+  const unaccountedDaily = seven.map((d) => d.unaccounted);
+  const unaccountedRow: SevenDayRow = {
+    key: "unaccounted",
+    name: "Unaccounted",
+    unaccounted: true,
+    dailyMs: unaccountedDaily,
+    totalMs: unaccountedDaily.reduce((a, b) => a + b, 0),
+  };
 
   const runningLabelId =
     props.activeLabelId !== undefined
@@ -90,7 +144,7 @@ export default function TotalsSection(props: TotalsSectionProps) {
       const startPct = (cumulative / DAY_MS) * 100;
       cumulative += unaccounted;
       const endPct = (cumulative / DAY_MS) * 100;
-      stops.push(`#404040 ${startPct}% ${endPct}%`);
+      stops.push(`${UNACCOUNTED_VISUAL_COLOUR} ${startPct}% ${endPct}%`);
     }
 
     if (cumulative < DAY_MS) {
@@ -196,6 +250,11 @@ export default function TotalsSection(props: TotalsSectionProps) {
                   : undefined;
                 const left = ((segment.start - props.dayStart) / DAY_MS) * 100;
                 const width = ((segment.end - segment.start) / DAY_MS) * 100;
+                const backgroundColor = isUnaccountedLabelId(segment.labelId)
+                  ? UNACCOUNTED_VISUAL_COLOUR
+                  : label
+                    ? getLabelColour(label.colourId).value
+                    : undefined;
 
                 return (
                   <li
@@ -205,9 +264,7 @@ export default function TotalsSection(props: TotalsSectionProps) {
                     style={{
                       left: `${left}%`,
                       width: `${width}%`,
-                      backgroundColor: label
-                        ? getLabelColour(label.colourId).value
-                        : undefined,
+                      backgroundColor,
                     }}
                   />
                 );
@@ -240,34 +297,106 @@ export default function TotalsSection(props: TotalsSectionProps) {
             <h3 className="text-sm font-semibold text-neutral-200">
               Seven day totals
             </h3>
-            <ul aria-label="Seven day totals" className="grid gap-3">
-              {seven.map((day) => (
-                <li
-                  key={day.dayIndex}
-                  className="grid gap-1 border-b border-neutral-800 pb-3 text-sm last:border-b-0 last:pb-0"
+            <div
+              aria-label="Seven day totals"
+              role="table"
+              className="grid gap-2 text-sm"
+            >
+              <div
+                role="row"
+                className="grid items-end gap-2 text-[11px] font-medium text-neutral-500"
+                style={{
+                  gridTemplateColumns:
+                    "minmax(6rem, 1.2fr) repeat(7, minmax(0, 1fr)) minmax(3.5rem, auto) minmax(3.5rem, auto)",
+                }}
+              >
+                <span role="columnheader">Label</span>
+                {dayHeaders.map((day) => (
+                  <span
+                    key={day.dayIndex}
+                    role="columnheader"
+                    className="text-center"
+                    title={day.label}
+                  >
+                    {day.label}
+                  </span>
+                ))}
+                <span role="columnheader" className="text-right">
+                  Avg
+                </span>
+                <span role="columnheader" className="text-right">
+                  Total
+                </span>
+              </div>
+              {[...labelRows, unaccountedRow].map((row) => (
+                <div
+                  key={row.key}
+                  role="row"
+                  className="grid items-center gap-2 border-t border-neutral-800 pt-2"
+                  style={{
+                    gridTemplateColumns:
+                      "minmax(6rem, 1.2fr) repeat(7, minmax(0, 1fr)) minmax(3.5rem, auto) minmax(3.5rem, auto)",
+                  }}
                 >
-                  <span className="text-xs font-semibold text-neutral-400 uppercase">
-                    Day {day.dayIndex}
+                  <span
+                    role="cell"
+                    className="flex min-w-0 items-center gap-2 text-neutral-200"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={
+                        row.unaccounted
+                          ? `h-3 w-3 shrink-0 ${UNACCOUNTED_MARKER_CLASS}`
+                          : "h-3 w-3 shrink-0 rounded-full"
+                      }
+                      style={
+                        row.unaccounted || !row.colourId
+                          ? undefined
+                          : {
+                              backgroundColor: getLabelColour(row.colourId)
+                                .value,
+                            }
+                      }
+                    />
+                    <span className="truncate">{row.name}</span>
                   </span>
-                  <span className="flex flex-wrap gap-x-4 gap-y-1 text-neutral-200">
-                    {Array.from(day.totals.entries()).map(([labelId, ms]) => (
-                      <span key={labelId}>
-                        {labelName(labelId)}:{" "}
-                        <span className="font-mono tabular-nums">
-                          {formatClock(ms)}
-                        </span>
-                      </span>
-                    ))}
-                    <span className="text-neutral-400">
-                      Unaccounted:{" "}
-                      <span className="font-mono tabular-nums">
-                        {formatClock(day.unaccounted)}
-                      </span>
+                  {row.dailyMs.map((ms, i) => (
+                    <span
+                      key={dayHeaders[i].dayIndex}
+                      role="cell"
+                      className="flex h-5 items-end rounded-sm bg-neutral-950/80"
+                      title={`${dayHeaders[i].label}: ${formatClock(ms)}`}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="w-full rounded-sm"
+                        style={{
+                          height: `${Math.max(0, Math.min(100, (ms / DAY_MS) * 100))}%`,
+                          minHeight: ms > 0 ? "2px" : undefined,
+                          backgroundColor: row.unaccounted
+                            ? UNACCOUNTED_VISUAL_COLOUR
+                            : row.colourId
+                              ? getLabelColour(row.colourId).value
+                              : undefined,
+                        }}
+                      />
                     </span>
+                  ))}
+                  <span
+                    role="cell"
+                    className="text-right font-mono text-xs tabular-nums text-neutral-400"
+                  >
+                    {formatClock(Math.round(row.totalMs / seven.length))}
                   </span>
-                </li>
+                  <span
+                    role="cell"
+                    className="text-right font-mono text-xs tabular-nums text-neutral-200"
+                  >
+                    {formatClock(row.totalMs)}
+                  </span>
+                </div>
               ))}
-            </ul>
+            </div>
           </div>
         </div>
       ) : null}
