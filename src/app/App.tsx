@@ -10,6 +10,7 @@ import { UNACCOUNTED_LABEL_ID } from "@/domain/labels";
 import type { SharedState } from "@/data/persistence";
 import FirstSignInPrompt from "@/components/FirstSignInPrompt";
 import LabelsSection from "@/components/LabelsSection";
+import BlocksSection from "@/components/BlocksSection";
 import TotalsSection from "@/components/TotalsSection";
 import ReopenPrompt from "@/components/ReopenPrompt";
 import AccountScreen from "@/components/AccountScreen";
@@ -186,16 +187,19 @@ export default function App({ runtime }: AppProps) {
 
         <DayClock clock={day.clock} />
 
-        <LabelsSection
+        <BlocksSection
+          blocks={dynamicBlocks}
+          labels={persisted.shared.labels}
           now={now}
           dayStart={selectedDay.dayStart}
           dayEnd={selectedDay.dayEnd}
-          labels={persisted.shared.labels}
-          activeLabelId={activeLabelId}
-          dynamicBlocks={dynamicBlocks}
-          shortcutsEnabled={!reopenPromptOpen && !accountOpen && firstSignIn === null}
           onRelabelBlock={relabelBlock}
           onSplitBlock={splitBlock}
+        />
+        <LabelsSection
+          labels={persisted.shared.labels}
+          activeLabelId={activeLabelId}
+          shortcutsEnabled={!reopenPromptOpen && !accountOpen && firstSignIn === null}
           onSelectLabel={selectLabel}
           onToggleLabel={toggleLabel}
           onCreateLabel={createLabel}

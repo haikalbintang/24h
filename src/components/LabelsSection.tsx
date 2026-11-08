@@ -9,8 +9,6 @@ import {
   LABEL_COLOURS,
 } from "@/domain/labels";
 import type { Label, LabelColourId, LabelId } from "@/domain/labels";
-import BlocksSection from "./BlocksSection";
-import type { Block } from "@/domain/blocks";
 
 function ManageIcon({ children }: { children: React.ReactNode }) {
   return (
@@ -58,15 +56,9 @@ const manageDangerIconButtonClass =
   "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-red-900/60 text-red-400 hover:border-red-700 hover:text-red-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600";
 
 interface LabelsSectionProps {
-  now: number;
-  dayStart: number;
-  dayEnd: number;
   labels: Label[];
   activeLabelId: LabelId | null;
-  dynamicBlocks: Block[];
   shortcutsEnabled: boolean;
-  onRelabelBlock: (id: string, labelId: LabelId) => string | null;
-  onSplitBlock: (id: string, at: number) => string | null;
   onSelectLabel: (labelId: LabelId | null) => void;
   onToggleLabel: (labelId: LabelId) => void;
   onCreateLabel: (name: string, colourId: LabelColourId) => string | null;
@@ -80,15 +72,9 @@ interface LabelsSectionProps {
 }
 
 export default function LabelsSection({
-  now,
-  dayStart,
-  dayEnd,
   labels,
   activeLabelId,
-  dynamicBlocks,
   shortcutsEnabled,
-  onRelabelBlock,
-  onSplitBlock,
   onSelectLabel,
   onToggleLabel,
   onCreateLabel,
@@ -217,16 +203,7 @@ export default function LabelsSection({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onKeyDown]);
 
-  return (<>
-    <BlocksSection
-      blocks={dynamicBlocks}
-      labels={labels}
-      now={now}
-      dayStart={dayStart}
-      dayEnd={dayEnd}
-      onRelabelBlock={onRelabelBlock}
-      onSplitBlock={onSplitBlock}
-    />
+  return (
     <section
       aria-labelledby="labels-heading"
       className="grid gap-6 border-t border-neutral-800 pt-6"
@@ -592,6 +569,6 @@ export default function LabelsSection({
         </div>
       ) : null}
 
-    </section></>
+    </section>
   );
 }
