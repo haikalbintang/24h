@@ -23,6 +23,9 @@ import { saveBlocksExport, saveJsonExport } from "@/data/export";
 import TotalsSection from "@/components/TotalsSection";
 import ReopenPrompt from "@/components/ReopenPrompt";
 import AccountScreen from "@/components/AccountScreen";
+import AppHeader from "@/components/AppHeader";
+import DayClock from "@/components/DayClock";
+import UndoToast from "@/components/UndoToast";
 import { useBlocks, UNDO_WINDOW_MS } from "@/hooks/useBlocks";
 import type { Runtime } from "@/data/runtime";
 import { sameAccountSession, type AccountSession } from "@/data/auth";
@@ -31,179 +34,6 @@ export interface AppProps {
   runtime: Runtime;
 }
 
-const exportButtonClass =
-  "min-h-8 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 transition-colors hover:border-neutral-500 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600";
-
-const themeToggleButtonClass =
-  "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-neutral-700 bg-neutral-900 text-neutral-200 transition-colors hover:border-neutral-500 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600";
-
-interface ExportMenuProps {
-  onExportJson: () => void;
-  onExportCsv: () => void;
-}
-
-function ExportMenu({ onExportJson, onExportCsv }: ExportMenuProps) {
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const menuRef = useRef<HTMLUListElement | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-
-    const handlePointerDown = (event: PointerEvent) => {
-      if (!containerRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setOpen(false);
-        triggerRef.current?.focus();
-        return;
-      }
-      if (
-        event.key !== "ArrowDown" &&
-        event.key !== "ArrowUp" &&
-        event.key !== "Home" &&
-        event.key !== "End"
-      ) {
-        return;
-      }
-
-      const menu = menuRef.current;
-      if (menu === null) return;
-
-      const menuItems = Array.from(
-        menu.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'),
-      ).filter((button) => !button.disabled);
-
-      if (menuItems.length === 0) return;
-
-      event.preventDefault();
-
-      if (event.key === "Home") {
-        menuItems[0]?.focus();
-        return;
-      }
-      if (event.key === "End") {
-        menuItems[menuItems.length - 1]?.focus();
-        return;
-      }
-
-      const currentIndex = menuItems.findIndex(
-        (button) => button === document.activeElement,
-      );
-      const step = event.key === "ArrowDown" ? 1 : -1;
-      let nextIndex = currentIndex + step;
-
-      if (currentIndex === -1) {
-        nextIndex = event.key === "ArrowDown" ? 0 : menuItems.length - 1;
-      } else if (nextIndex < 0) {
-        nextIndex = menuItems.length - 1;
-      } else if (nextIndex >= menuItems.length) {
-        nextIndex = 0;
-      }
-
-      menuItems[nextIndex]?.focus();
-    };
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [open]);
-
-  return (
-    <div ref={containerRef} className="relative">
-      <button
-        ref={triggerRef}
-        type="button"
-        aria-label="Export"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
-        className={exportButtonClass}
-      >
-        Export
-      </button>
-      {open ? (
-        <ul
-          ref={menuRef}
-          role="menu"
-          aria-label="Export"
-          className="absolute right-0 z-10 mt-1 min-w-36 rounded-lg border border-neutral-700 bg-neutral-900 p-1 shadow-lg"
-        >
-          <li role="none">
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                onExportJson();
-              }}
-              className="flex w-full items-center rounded-md px-3 py-1.5 text-left text-sm text-neutral-200 hover:bg-neutral-800 focus:bg-neutral-800 focus:outline-none"
-            >
-              Export JSON
-            </button>
-          </li>
-          <li role="none">
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                onExportCsv();
-              }}
-              className="flex w-full items-center rounded-md px-3 py-1.5 text-left text-sm text-neutral-200 hover:bg-neutral-800 focus:bg-neutral-800 focus:outline-none"
-            >
-              Export CSV
-            </button>
-          </li>
-        </ul>
-      ) : null}
-    </div>
-  );
-}
-
-function SunIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      width="16"
-      height="16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="4" />
-      <path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
-    </svg>
-  );
-}
-
-function MoonIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      width="16"
-      height="16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 3a6 6 0 0 0 9 9 9.75 9.75 0 1 1-9-9Z" />
-    </svg>
-  );
-}
 
 export default function App({ runtime }: AppProps) {
   const [persisted, setPersisted] = useState<PersistedState>(() => {
@@ -709,68 +539,20 @@ export default function App({ runtime }: AppProps) {
         className="mx-auto flex min-h-screen min-h-dvh w-full max-w-5xl flex-col px-6 py-8 sm:px-10"
         inert={reopenPromptOpen || accountOpen || firstSignIn !== null}
       >
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-800 pb-5">
-          <h1 className="text-xs font-semibold tracking-[0.28em] text-neutral-500 uppercase">
-            Day Labels
-          </h1>
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setAccountOpen(true)}
-              className={exportButtonClass}
-            >
-              Account
-            </button>
-            <button
-              type="button"
-              onClick={toggleTheme}
-              aria-label="Toggle theme"
-              aria-pressed={persisted.device.theme === THEME_LIGHT}
-              className={themeToggleButtonClass}
-            >
-              {persisted.device.theme === THEME_DARK ? <SunIcon /> : <MoonIcon />}
-            </button>
-            <select
-              aria-label="Day"
-              value={selectedDay.dayIndex}
-              onChange={(event) => {
-                const index = Number(event.target.value);
-                setPickedDayIndex(index === day.dayIndex ? null : index);
-              }}
-              className="min-h-8 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-200 transition-colors hover:border-neutral-500 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
-            >
-              {dayOptions.map((option) => (
-                <option key={option.dayIndex} value={option.dayIndex}>
-                  {option.dayLabel}
-                </option>
-              ))}
-            </select>
-            <ExportMenu onExportJson={exportJson} onExportCsv={exportCsv} />
-          </div>
-          <div className="flex w-full flex-col gap-0.5 text-xs text-neutral-500">
-            <p>
-              No import is available; an exported file cannot be restored here.
-            </p>
-            <p>
-              Clearing site data is permanent and cannot be undone; keep an export
-              as a backup.
-            </p>
-          </div>
-        </header>
+        <AppHeader
+          theme={persisted.device.theme}
+          onToggleTheme={toggleTheme}
+          onOpenAccount={() => setAccountOpen(true)}
+          selectedDayIndex={selectedDay.dayIndex}
+          dayOptions={dayOptions}
+          onSelectDay={(index) =>
+            setPickedDayIndex(index === day.dayIndex ? null : index)
+          }
+          onExportJson={exportJson}
+          onExportCsv={exportCsv}
+        />
 
-        <section className="flex flex-1 flex-col items-center justify-center py-16">
-          <p className="text-xs font-medium tracking-[0.32em] text-neutral-500 uppercase">
-            Day clock
-          </p>
-          <p
-            role="timer"
-            aria-live="off"
-            aria-label="Day clock"
-            className="mt-5 font-mono text-[clamp(3.5rem,16vw,10rem)] leading-none font-semibold tracking-tight text-neutral-50 tabular-nums"
-          >
-            {day.clock}
-          </p>
-        </section>
+        <DayClock clock={day.clock} />
 
         <LabelsSection
           now={now}
@@ -800,29 +582,11 @@ export default function App({ runtime }: AppProps) {
         />
       </div>
 
-      {archiveUndoVisible || undoError ? (
-        <div
-          role="status"
-          aria-live="polite"
-          aria-label="Undo"
-          className="fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-lg border border-neutral-700 bg-neutral-900 px-4 py-2 text-sm shadow-lg"
-        >
-          {archiveUndoVisible ? (
-            <>
-              <span>Label archived.</span>
-              <button
-                type="button"
-                onClick={() => setUndoError(undoArchive())}
-                className="min-h-6 px-1 font-semibold text-neutral-100 underline focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
-              >
-                Undo
-              </button>
-            </>
-          ) : (
-            <span>{undoError}</span>
-          )}
-        </div>
-      ) : null}
+      <UndoToast
+        archiveUndoVisible={archiveUndoVisible}
+        error={undoError}
+        onUndo={() => setUndoError(undoArchive())}
+      />
 
       {reopenPromptOpen ? (
         <ReopenPrompt

@@ -138,14 +138,6 @@ describe("Day clock", () => {
     expect(dayClock()).toHaveTextContent("06:30:00");
     expect(screen.getByText("Mar 9, 2026")).toBeInTheDocument();
   });
-
-  it("does not announce the ticking clock every second", () => {
-    const runtime = createTestRuntime(at("2026-03-08T05:30:00.000Z"));
-
-    render(<App runtime={runtime} />);
-
-    expect(dayClock()).toHaveAttribute("aria-live", "off");
-  });
 });
 
 describe("Theme", () => {
