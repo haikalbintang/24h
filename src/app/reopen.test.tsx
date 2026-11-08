@@ -4,18 +4,15 @@ import { describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { STATE_STORAGE_KEY } from '@/data/persistence'
 import { createBrowserRuntime } from '@/data/runtime'
-import { createFakeStorage, createTestRuntime } from '@/testing/runtime'
+import { createFakeStorage } from '@/testing/runtime'
+import { renderApp } from '@/testing/renderApp'
 
 const SECOND_MS = 1000
 const HEARTBEAT_MS = 60 * SECOND_MS
 const at = (iso: string) => new Date(iso).getTime()
 
 function setup(now = at('2026-03-08T05:30:00.000Z'), storage = createFakeStorage()) {
-  const runtime = createTestRuntime(now, storage)
-  const user = userEvent.setup()
-  const view = render(<App runtime={runtime} />)
-
-  return { runtime, user, view }
+  return renderApp({ now, storage })
 }
 
 async function createLabel(

@@ -1,9 +1,8 @@
-import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import App from './App'
 import { STATE_STORAGE_KEY } from '@/data/persistence'
-import { createFakeStorage, createTestRuntime } from '@/testing/runtime'
+import { createFakeStorage } from '@/testing/runtime'
+import { renderApp } from '@/testing/renderApp'
 
 const SECOND_MS = 1000
 const MINUTE_MS = 60 * SECOND_MS
@@ -51,12 +50,7 @@ function stateDocument() {
 function setup(
   storage = createFakeStorage({ [STATE_STORAGE_KEY]: stateDocument() }),
 ) {
-  const runtime = createTestRuntime(NOW, storage)
-  const user = userEvent.setup()
-
-  render(<App runtime={runtime} />)
-
-  return { runtime, user }
+  return renderApp({ now: NOW, storage })
 }
 
 describe('Export', () => {

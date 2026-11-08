@@ -1,8 +1,7 @@
-import { act, render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { act, screen, within } from "@testing-library/react";
+import type userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import App from "./App";
-import { createTestRuntime } from "@/testing/runtime";
+import { renderApp } from "@/testing/renderApp";
 
 const SECOND_MS = 1000;
 const MINUTE_MS = 60 * SECOND_MS;
@@ -13,12 +12,7 @@ const at = (iso: string) => new Date(iso).getTime();
 
 // 05:30Z on 2026-03-08 is 00:30 in America/New_York, so the Anchor is 05:00Z.
 function setup(now = at("2026-03-08T05:30:00.000Z")) {
-  const runtime = createTestRuntime(now);
-  const user = userEvent.setup();
-
-  render(<App runtime={runtime} />);
-
-  return { runtime, user };
+  return renderApp({ now });
 }
 
 async function createLabel(

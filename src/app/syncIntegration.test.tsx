@@ -1,10 +1,10 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { act, screen, waitFor, within } from '@testing-library/react'
+import type userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
-import App from './App'
 import { createFakeAuthAdapter } from '@/testing/auth'
 import { createFakeSyncAdapter } from '@/testing/sync'
-import { createFakeStorage, createTestRuntime } from '@/testing/runtime'
+import { createFakeStorage } from '@/testing/runtime'
+import { renderApp } from '@/testing/renderApp'
 
 const at = (iso: string) => new Date(iso).getTime()
 
@@ -16,10 +16,7 @@ function setup({
   }),
   sync = createFakeSyncAdapter(),
 } = {}) {
-  const runtime = createTestRuntime(now, storage, auth, sync)
-  const user = userEvent.setup()
-
-  render(<App runtime={runtime} />)
+  const { runtime, user } = renderApp({ now, storage, auth, sync })
 
   return { runtime, user, storage, auth, sync }
 }

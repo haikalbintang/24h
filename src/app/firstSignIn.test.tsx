@@ -1,11 +1,11 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import App from './App'
 import type { RemoteDocument } from '@/data/sync'
 import { createFakeAuthAdapter } from '@/testing/auth'
 import { createFakeSyncAdapter } from '@/testing/sync'
 import { createFakeStorage, createTestRuntime } from '@/testing/runtime'
+import { renderApp } from '@/testing/renderApp'
 
 const at = (iso: string) => new Date(iso).getTime()
 
@@ -37,10 +37,7 @@ async function setup() {
     initialDocuments: { 'acc-1': remoteDocument('Remote Work', 'label-remote') },
   })
   const auth = createFakeAuthAdapter({ initialSession: null })
-  const runtime = createTestRuntime(NOW, createFakeStorage(), auth, sync)
-  const user = userEvent.setup()
-
-  render(<App runtime={runtime} />)
+  const { runtime, user } = renderApp({ now: NOW, auth, sync })
 
   // Local, signed-out user data.
   await user.click(screen.getByRole('button', { name: 'New label' }))

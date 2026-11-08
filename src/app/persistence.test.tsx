@@ -10,6 +10,7 @@ import {
   UNACCOUNTED_LABEL_ID,
 } from '@/data/persistence'
 import { createFakeStorage, createTestRuntime } from '@/testing/runtime'
+import { renderApp } from '@/testing/renderApp'
 
 const SECOND_MS = 1000
 
@@ -19,12 +20,7 @@ function setup(
   now = at('2026-03-08T05:30:00.000Z'),
   storage = createFakeStorage(),
 ) {
-  const runtime = createTestRuntime(now, storage)
-  const user = userEvent.setup()
-
-  render(<App runtime={runtime} />)
-
-  return { runtime, user }
+  return renderApp({ now, storage })
 }
 
 async function createLabel(

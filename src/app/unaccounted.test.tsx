@@ -1,10 +1,10 @@
-import { act, render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { act, screen, within } from "@testing-library/react";
+import type userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import App from "./App";
 import { UNACCOUNTED_LABEL_ID } from "@/domain/labels";
 import { STATE_STORAGE_KEY } from "@/data/persistence";
-import { createFakeStorage, createTestRuntime } from "@/testing/runtime";
+import { createFakeStorage } from "@/testing/runtime";
+import { renderApp } from "@/testing/renderApp";
 
 const SECOND_MS = 1000;
 const MINUTE_MS = 60 * SECOND_MS;
@@ -13,11 +13,7 @@ const HOUR_MS = 60 * MINUTE_MS;
 const at = (iso: string) => new Date(iso).getTime();
 
 function setup(now = at("2026-03-08T05:00:00.000Z"), storage = createFakeStorage()) {
-  const runtime = createTestRuntime(now, storage);
-  const user = userEvent.setup();
-
-  render(<App runtime={runtime} />);
-
+  const { runtime, user } = renderApp({ now, storage });
   return { runtime, user, storage };
 }
 

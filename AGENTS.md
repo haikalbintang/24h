@@ -20,9 +20,10 @@ Single-context: `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents
 - `data/` — state, IO, and the composition root; may import `domain/`
 - `app/`, `components/`, `hooks/` — may import `domain/` and `data/`
 - `testing/` — shared test doubles plus the vitest setup entry; may import
-  `domain/` and `data/`, and is itself imported only by tests and `vite.config.ts`
+  any layer, and is itself imported only by tests and `vite.config.ts`
 
-Tests sit beside what they exercise: unit tests next to their module, App-level
-integration tests in `src/app/`, and shared doubles in `src/testing/`. Import
-across folders with `@/` (e.g. `@/domain/blocks`) and within a folder with `./`.
-Do not add barrel `index.ts` files.
+Tests follow a two-tier strategy: unit and component tests sit beside what they
+exercise (`components/`, `domain/`, `data/`), while App-level integration tests
+sit in `src/app/`. Import across folders with `@/` (e.g. `@/domain/blocks`) and
+within a folder with `./`. `App` composes `LabelsSection` and `BlocksSection`
+directly. Do not add barrel `index.ts` files.

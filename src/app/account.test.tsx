@@ -1,5 +1,4 @@
 import { act, render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import App from './App'
 import { STATE_STORAGE_KEY } from '@/data/persistence'
@@ -9,8 +8,8 @@ import {
   createCapturingExportSink,
   createFakeClock,
   createFakeStorage,
-  createTestRuntime,
 } from '@/testing/runtime'
+import { renderApp } from '@/testing/renderApp'
 import {
   createSupabaseClient,
   SUPABASE_AUTH_STORAGE_KEY,
@@ -40,10 +39,7 @@ function setup({
   auth = createFakeAuthAdapter(),
   sync = createFakeSyncAdapter(),
 } = {}) {
-  const runtime = createTestRuntime(now, storage, auth, sync)
-  const user = userEvent.setup()
-
-  render(<App runtime={runtime} />)
+  const { runtime, user } = renderApp({ now, storage, auth, sync })
 
   return { runtime, user, storage, auth, sync }
 }
