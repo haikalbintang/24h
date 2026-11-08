@@ -1,7 +1,7 @@
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
-import App from './App'
+import App from '@/app/App'
 import { createTestRuntime } from '@/testing/runtime'
 
 const SECOND_MS = 1000
