@@ -237,14 +237,14 @@ export default function LabelsSection({
             role="status"
             aria-label="Active label"
             aria-describedby={activeLabel ? "active-label-colour" : undefined}
-            className="flex items-center gap-2 text-lg font-medium text-neutral-100"
+            className="flex items-center gap-2 text-sm font-medium text-neutral-100"
           >
             {activeLabel ? (
               isUnaccountedLabel(activeLabel) ? (
                 <>
                   <span
                     aria-hidden="true"
-                    className={`h-4 w-4 shrink-0 forced-color-adjust-none ${UNACCOUNTED_MARKER_CLASS}`}
+                    className={`h-3 w-3 shrink-0 forced-color-adjust-none ${UNACCOUNTED_MARKER_CLASS}`}
                   />
                   {activeLabel.name}
                 </>
@@ -252,11 +252,21 @@ export default function LabelsSection({
                 <>
                   <span
                     aria-hidden="true"
-                    className="h-4 w-4 rounded-full forced-color-adjust-none"
-                    style={{
-                      backgroundColor: getLabelColour(activeLabel.colourId).value,
-                    }}
-                  />
+                    className="relative flex h-3 w-3 shrink-0 forced-color-adjust-none"
+                  >
+                    <span
+                      className="absolute inline-flex h-full w-full rounded-full opacity-75 motion-safe:animate-ping"
+                      style={{
+                        backgroundColor: getLabelColour(activeLabel.colourId).value,
+                      }}
+                    />
+                    <span
+                      className="relative inline-flex h-3 w-3 rounded-full"
+                      style={{
+                        backgroundColor: getLabelColour(activeLabel.colourId).value,
+                      }}
+                    />
+                  </span>
                   {activeLabel.name}
                 </>
               )
@@ -264,7 +274,7 @@ export default function LabelsSection({
               <>
                 <span
                   aria-hidden="true"
-                  className={`h-4 w-4 shrink-0 forced-color-adjust-none ${UNACCOUNTED_MARKER_CLASS}`}
+                  className={`h-3 w-3 shrink-0 forced-color-adjust-none ${UNACCOUNTED_MARKER_CLASS}`}
                 />
                 Unaccounted
               </>
