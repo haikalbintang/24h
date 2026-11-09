@@ -57,7 +57,6 @@ export default function App({ runtime }: AppProps) {
     adoptExternalState,
   } = useBlocks(anchor, now, runtime.clock.now, {
     blocks: persisted.shared.blocks,
-    labels: persisted.shared.labels,
     activeLabelId: persisted.shared.activeLabelId,
     lastSeen: persisted.shared.heartbeat,
   });

@@ -11,11 +11,10 @@ import {
 import type { Block, BlockId } from "@/domain/blocks";
 import { HEARTBEAT_INTERVAL_MS } from "@/domain/heartbeat";
 import { UNACCOUNTED_LABEL_ID } from "@/domain/labels";
-import type { Label, LabelId } from "@/domain/labels";
+import type { LabelId } from "@/domain/labels";
 
 export interface UseBlocksInitialState {
   blocks: Block[];
-  labels: Label[];
   activeLabelId: LabelId | null;
   lastSeen: number | null;
 }
@@ -32,7 +31,6 @@ export interface UseBlocksResult {
   recordHeartbeat: () => number | null;
   relabelBlock: (id: BlockId, labelId: LabelId) => string | null;
   splitBlock: (id: BlockId, at: number) => string | null;
-  deleteBlocksByLabel: (labelId: LabelId) => void;
   adoptExternalState: (state: {
     blocks?: Block[];
     activeLabelId?: LabelId | null;
@@ -169,18 +167,6 @@ export function useBlocks(
     [anchor, blocks, getNow],
   );
 
-  const deleteBlocksByLabel = useCallback(
-    (labelId: LabelId) => {
-      setBlocks((current) =>
-        current.filter((block) => block.labelId !== labelId),
-      );
-      if (activeLabelId === labelId) {
-        setActiveLabelId(UNACCOUNTED_LABEL_ID);
-      }
-    },
-    [activeLabelId],
-  );
-
   const splitBlockAt = useCallback(
     (id: BlockId, splitTime: number) => {
       const at = getNow();
@@ -238,7 +224,6 @@ export function useBlocks(
     recordHeartbeat,
     relabelBlock,
     splitBlock: splitBlockAt,
-    deleteBlocksByLabel,
     adoptExternalState,
   };
 }
