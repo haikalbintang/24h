@@ -16,6 +16,16 @@ import {
   unaccountedMsForDay,
 } from "@/domain/totals";
 
+function formatScale(ms: number): string {
+  const totalMinutes = Math.round(ms / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours === 0) return `${minutes}m`;
+  if (minutes === 0) return `${hours}h`;
+  return `${hours}h${minutes}m`;
+}
+
 export interface TotalsSectionProps {
   labels: Label[];
   activeLabelId?: LabelId | null;
@@ -309,22 +319,25 @@ export default function TotalsSection(props: TotalsSectionProps) {
             </h3>
             <div
               tabIndex={0}
-              className="overflow-x-auto rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
+              className="overflow-x-auto overflow-y-hidden rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
             >
               <div
                 aria-label="Seven day totals"
                 role="table"
-                className="grid min-w-[28rem] gap-3 text-sm"
+                className="grid min-w-[36rem] gap-3 text-sm"
               >
                 <div
                   role="row"
                   className="grid items-end gap-2 text-[11px] font-medium text-neutral-500"
                   style={{
                     gridTemplateColumns:
-                      "minmax(6rem, 1.2fr) repeat(7, minmax(2.25rem, 1fr)) minmax(3.5rem, auto) minmax(3.5rem, auto)",
+                      "minmax(6rem, 1.2fr) minmax(3rem, auto) repeat(7, minmax(2.25rem, 1fr)) minmax(3.5rem, auto) minmax(3.5rem, auto)",
                   }}
                 >
                   <span role="columnheader">Label</span>
+                  <span role="columnheader" className="text-right">
+                    Scale
+                  </span>
                   {dayHeaders.map((day) => (
                     <span
                       key={day.dayIndex}
@@ -335,10 +348,10 @@ export default function TotalsSection(props: TotalsSectionProps) {
                       {day.label}
                     </span>
                   ))}
-                  <span role="columnheader" className="text-right">
+                  <span role="columnheader" className="pl-2 text-right">
                     Avg
                   </span>
-                  <span role="columnheader" className="text-right">
+                  <span role="columnheader" className="pl-2 text-right">
                     Total
                   </span>
                 </div>
@@ -352,7 +365,7 @@ export default function TotalsSection(props: TotalsSectionProps) {
                       className="grid items-center gap-2 border-t border-neutral-800 pt-3"
                       style={{
                         gridTemplateColumns:
-                          "minmax(6rem, 1.2fr) repeat(7, minmax(2.25rem, 1fr)) minmax(3.5rem, auto) minmax(3.5rem, auto)",
+                          "minmax(6rem, 1.2fr) minmax(3rem, auto) repeat(7, minmax(2.25rem, 1fr)) minmax(3.5rem, auto) minmax(3.5rem, auto)",
                       }}
                     >
                       <span
@@ -377,23 +390,36 @@ export default function TotalsSection(props: TotalsSectionProps) {
                         />
                         <span className="truncate">{row.name}</span>
                       </span>
+                      <span
+                        role="cell"
+                        aria-label={`${row.name} scale: 0 to ${formatClock(maxDailyMs)}`}
+                        className="flex h-40 flex-col justify-between border-r border-neutral-800 pr-2 text-right font-mono text-xs leading-none tabular-nums text-neutral-500"
+                      >
+                        <span aria-hidden="true">{formatScale(maxDailyMs)}</span>
+                        <span aria-hidden="true">
+                          {formatScale(maxDailyMs / 2)}
+                        </span>
+                        <span aria-hidden="true">0</span>
+                      </span>
                       {row.dailyMs.map((ms, i) => {
                         const heightPct =
                           maxDailyMs > 0
                             ? Math.max(0, Math.min(100, (ms / maxDailyMs) * 100))
                             : 0;
+                        // Text fits inside the bar once it is at least ~1/5 of the column height.
+                        const labelInside = heightPct >= 20;
 
                         return (
                           <span
                             key={dayHeaders[i].dayIndex}
                             role="cell"
                             aria-label={`${dayHeaders[i].label}: ${formatClock(ms)}`}
-                            className="flex h-8 items-end rounded-sm bg-neutral-950/80"
+                            className="relative h-40 w-11/12 justify-self-center rounded-sm bg-neutral-950/80"
                             title={`${dayHeaders[i].label}: ${formatClock(ms)}`}
                           >
                             <span
                               aria-hidden="true"
-                              className="w-full rounded-sm forced-color-adjust-none"
+                              className="absolute inset-x-0 bottom-0 rounded-sm forced-color-adjust-none"
                               style={{
                                 height: `${heightPct}%`,
                                 minHeight: ms > 0 ? "2px" : undefined,
@@ -404,18 +430,36 @@ export default function TotalsSection(props: TotalsSectionProps) {
                                     : undefined,
                               }}
                             />
+                            {ms > 0 ? (
+                              <span
+                                aria-hidden="true"
+                                className={`absolute inset-x-0 flex justify-center font-mono text-xs leading-none tabular-nums ${labelInside
+                                  ? "bottom-1 text-neutral-50 [text-shadow:0_1px_2px_rgba(0,0,0,0.9)]"
+                                  : "text-neutral-400"
+                                  }`}
+                                style={
+                                  labelInside
+                                    ? undefined
+                                    : {
+                                      bottom: `calc(${heightPct}% + 0.25rem)`,
+                                    }
+                                }
+                              >
+                                {formatScale(ms)}
+                              </span>
+                            ) : null}
                           </span>
                         );
                       })}
                       <span
                         role="cell"
-                        className="text-right font-mono text-xs tabular-nums text-neutral-400"
+                        className="pl-2 text-right font-mono text-xs tabular-nums text-neutral-400"
                       >
                         {formatClock(Math.round(row.totalMs / seven.length))}
                       </span>
                       <span
                         role="cell"
-                        className="text-right font-mono text-xs tabular-nums text-neutral-200"
+                        className="pl-2 text-right font-mono text-xs tabular-nums text-neutral-200"
                       >
                         {formatClock(row.totalMs)}
                       </span>
