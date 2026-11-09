@@ -12,7 +12,6 @@ import FirstSignInPrompt from "@/components/FirstSignInPrompt";
 import LabelsSection from "@/components/LabelsSection";
 import BlocksSection from "@/components/BlocksSection";
 import TotalsSection from "@/components/TotalsSection";
-import ReopenPrompt from "@/components/ReopenPrompt";
 import AccountScreen from "@/components/AccountScreen";
 import AppHeader from "@/components/AppHeader";
 import DayClock from "@/components/DayClock";
@@ -50,13 +49,9 @@ export default function App({ runtime }: AppProps) {
     dynamicBlocks,
     activeLabelId,
     lastSeen,
-    reopenPromptOpen,
     selectLabel,
     toggleLabel,
     recordHeartbeat,
-    endBlockAtLastSeen,
-    keepLabelThroughGap,
-    dismissReopenPrompt,
     relabelBlock,
     splitBlock,
     adoptExternalState,
@@ -172,7 +167,7 @@ export default function App({ runtime }: AppProps) {
     >
       <div
         className="mx-auto flex min-h-screen min-h-dvh w-full max-w-5xl flex-col px-6 py-8 sm:px-10"
-        inert={reopenPromptOpen || accountOpen || firstSignIn !== null}
+        inert={accountOpen || firstSignIn !== null}
       >
         <AppHeader
           theme={persisted.device.theme}
@@ -199,7 +194,7 @@ export default function App({ runtime }: AppProps) {
         <LabelsSection
           labels={persisted.shared.labels}
           activeLabelId={activeLabelId}
-          shortcutsEnabled={!reopenPromptOpen && !accountOpen && firstSignIn === null}
+          shortcutsEnabled={!accountOpen && firstSignIn === null}
           onSelectLabel={selectLabel}
           onToggleLabel={toggleLabel}
           onCreateLabel={createLabel}
@@ -223,18 +218,6 @@ export default function App({ runtime }: AppProps) {
         error={undoError}
         onUndo={undoArchive}
       />
-
-      {reopenPromptOpen ? (
-        <ReopenPrompt
-          labelName={
-            persisted.shared.labels.find((label) => label.id === activeLabelId)
-              ?.name ?? null
-          }
-          onEnd={endBlockAtLastSeen}
-          onKeep={keepLabelThroughGap}
-          onDismiss={dismissReopenPrompt}
-        />
-      ) : null}
 
       {firstSignIn ? (
         <FirstSignInPrompt

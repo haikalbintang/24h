@@ -80,7 +80,7 @@ describe('Persistence', () => {
     expect(stored.shared.activeLabelId).toBe('label-1')
   })
 
-  it('restores labels and Blocks from the versioned document after a reload', async () => {
+  it('restores labels and Blocks from the versioned document after a reload and keeps the open Block through the gap', async () => {
     const storage = createFakeStorage()
     const firstRuntime = createTestRuntime(
       at('2026-03-08T05:30:00.000Z'),
@@ -103,8 +103,7 @@ describe('Persistence', () => {
     )
     render(<App runtime={secondRuntime} />)
 
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'End Block' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 
     expect(screen.getByRole('button', { name: 'Work' })).toBeInTheDocument()
     expect(
@@ -113,21 +112,19 @@ describe('Persistence', () => {
 
     const items = blockItems()
 
-    expect(items).toHaveLength(3)
+    expect(items).toHaveLength(2)
     expect(items[0]).toHaveTextContent('Work')
-    expect(items[0]).toHaveTextContent('00:30:10')
+    expect(items[0]).toHaveTextContent('00:00:10')
     expect(items[0]).not.toHaveTextContent(/ongoing/i)
 
     expect(items[1]).toHaveTextContent('Rest')
-    expect(items[1]).not.toHaveTextContent(/ongoing/i)
+    expect(items[1]).toHaveTextContent('00:59:50')
+    expect(items[1]).toHaveTextContent(/ongoing/i)
 
-    expect(items[2]).toHaveTextContent('Unaccounted')
-    expect(items[2]).toHaveTextContent(/ongoing/i)
-
-    expect(status()).toHaveTextContent('Unaccounted')
+    expect(status()).toHaveTextContent('Rest')
   })
 
-  it('closes an open Block at last-seen and starts Unaccounted after a reload', async () => {
+  it('keeps an open Block through the gap after a reload', async () => {
     const storage = createFakeStorage()
     const firstRuntime = createTestRuntime(
       at('2026-03-08T05:30:00.000Z'),
@@ -148,19 +145,15 @@ describe('Persistence', () => {
     )
     render(<App runtime={secondRuntime} />)
 
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'End Block' }))
-
-    expect(status()).toHaveTextContent('Unaccounted')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(status()).toHaveTextContent('Work')
 
     const items = blockItems()
 
-    expect(items).toHaveLength(2)
+    expect(items).toHaveLength(1)
     expect(items[0]).toHaveTextContent('Work')
-    expect(items[0]).toHaveTextContent('00:31:00')
-    expect(items[0]).not.toHaveTextContent(/ongoing/i)
-    expect(items[1]).toHaveTextContent('Unaccounted')
-    expect(items[1]).toHaveTextContent(/ongoing/i)
+    expect(items[0]).toHaveTextContent('01:00:00')
+    expect(items[0]).toHaveTextContent(/ongoing/i)
   })
 
   it('falls back to a fresh state when the stored document is corrupt', () => {

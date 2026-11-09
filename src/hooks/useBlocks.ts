@@ -9,7 +9,7 @@ import {
   splitBlock,
 } from "@/domain/blocks";
 import type { Block, BlockId } from "@/domain/blocks";
-import { HEARTBEAT_INTERVAL_MS, isReopenGap } from "@/domain/heartbeat";
+import { HEARTBEAT_INTERVAL_MS } from "@/domain/heartbeat";
 import { UNACCOUNTED_LABEL_ID } from "@/domain/labels";
 import type { Label, LabelId } from "@/domain/labels";
 
@@ -27,13 +27,9 @@ export interface UseBlocksResult {
   dynamicBlocks: Block[];
   activeLabelId: LabelId | null;
   lastSeen: number | null;
-  reopenPromptOpen: boolean;
   selectLabel: (labelId: LabelId | null) => void;
   toggleLabel: (labelId: LabelId) => void;
   recordHeartbeat: () => number | null;
-  endBlockAtLastSeen: () => void;
-  keepLabelThroughGap: () => void;
-  dismissReopenPrompt: () => void;
   relabelBlock: (id: BlockId, labelId: LabelId) => string | null;
   splitBlock: (id: BlockId, at: number) => string | null;
   deleteBlocksByLabel: (labelId: LabelId) => void;
@@ -57,7 +53,6 @@ export function useBlocks(
   const [lastSeen, setLastSeen] = useState<number | null>(
     initialState.lastSeen,
   );
-  const [reopenDismissed, setReopenDismissed] = useState(false);
   const nextBlockId = useRef(
     Math.max(
       0,
@@ -72,17 +67,9 @@ export function useBlocks(
   const dynamicBlocks = splitAtDayBoundaries(blocks, anchor, now);
 
   const hasOpenBlock = blocks.some((block) => block.end === null);
-  const reopenPromptOpen =
-    hasOpenBlock && lastSeen !== null && !reopenDismissed && isReopenGap(lastSeen, now);
 
   useEffect(() => {
     if (!hasOpenBlock || lastSeen === null) {
-      return;
-    }
-
-    if (isReopenGap(lastSeen, now)) {
-      // The gap is long enough that the user must decide how to account for
-      // it; the reopen prompt takes over and defers the heartbeat.
       return;
     }
 
@@ -149,49 +136,9 @@ export function useBlocks(
 
     const at = getNow();
 
-    if (isReopenGap(lastSeen, at)) {
-      return null;
-    }
-
     setLastSeen(at);
     return at;
   }, [getNow, hasOpenBlock, lastSeen]);
-
-  const endBlockAtLastSeen = useCallback(() => {
-    const at = getNow();
-    const endedAt = lastSeen ?? at;
-
-    setBlocks((current) => {
-      const closed = closeActiveBlock(
-        // Split just before the end so a Block ending exactly on a Day
-        // boundary does not leave a zero-length tail.
-        splitAtDayBoundaries(current, anchor, endedAt - 1),
-        endedAt,
-        at,
-      );
-      const next = splitAtDayBoundaries(closed, anchor, at);
-
-      return [
-        ...next,
-        createLiveBlock(createBlockId(), UNACCOUNTED_LABEL_ID, at, at),
-      ];
-    });
-    setActiveLabelId(UNACCOUNTED_LABEL_ID);
-    setLastSeen(at);
-    setReopenDismissed(false);
-  }, [anchor, createBlockId, getNow, lastSeen]);
-
-  const keepLabelThroughGap = useCallback(() => {
-    const at = getNow();
-
-    setBlocks((current) => splitAtDayBoundaries(current, anchor, at));
-    setLastSeen(at);
-    setReopenDismissed(false);
-  }, [anchor, getNow]);
-
-  const dismissReopenPrompt = useCallback(() => {
-    setReopenDismissed(true);
-  }, []);
 
   const relabelBlock = useCallback(
     (id: BlockId, labelId: LabelId) => {
@@ -286,13 +233,9 @@ export function useBlocks(
     dynamicBlocks,
     activeLabelId,
     lastSeen,
-    reopenPromptOpen,
     selectLabel,
     toggleLabel,
     recordHeartbeat,
-    endBlockAtLastSeen,
-    keepLabelThroughGap,
-    dismissReopenPrompt,
     relabelBlock,
     splitBlock: splitBlockAt,
     deleteBlocksByLabel,

@@ -37,19 +37,15 @@ A continuous span during which one Label was active, bounded by a Label change o
 _Avoid_: interval, session, slot, entry, manual block, backfill
 
 **Gap**:
-A span during which no device was running, so no Block was recorded. A gap of two minutes or less extends the open Block; a longer gap stays Unaccounted and cannot be filled retroactively.
+A span during which no device was running. The open Block extends through it automatically, so its time is attributed to the Active label; a Gap appears as Unaccounted only when the open Block's Label is the Unaccounted label or an Archived label.
 _Avoid_: hole, downtime, missing time
 
 **Heartbeat**:
 The last-seen timestamp recorded while a Block is open. Across an Account, the greatest Heartbeat shows whether any device was running.
 _Avoid_: ping, tick, autosave
 
-**Reopen prompt**:
-The modal shown when a Block is still open but the gap since the last Heartbeat exceeds two minutes. It asks whether to end the Block at the last Heartbeat or keep the label through the gap.
-_Avoid_: resume dialog, away modal, recovery prompt
-
 **Unaccounted total**:
-The time in a Day that is not attributed to a non-archived Label: Unaccounted-label Blocks, Archived-label Blocks, and Gaps.
+The time in a Day that is not attributed to a non-archived Label: Unaccounted-label Blocks (including any Gap they span) and Archived-label Blocks.
 _Avoid_: unlabelled, missing time, idle
 
 **Archived label**:

@@ -462,14 +462,14 @@ describe('Sync Shared state integration', () => {
     })
   })
 
-  it('greatest heartbeat across devices drives the reopen prompt', async () => {
+  it('keeps the open Block without a prompt when another device has a newer heartbeat', async () => {
     const sharedAnchor = at('2026-03-08T00:00:00.000Z')
     const t0 = at('2026-03-08T05:30:00.000Z')
 
-    // Local device has a stored state from 10 minutes ago (gap > 2 min)
+    // Local device has a stored state from 10 minutes ago.
     const storage = createTenMinuteAwayStorage(sharedAnchor, t0)
 
-    // Another device was running and recorded a heartbeat 30 seconds ago (gap < 2 min)
+    // Another device was running and recorded a heartbeat 30 seconds ago.
     const sync = createFakeSyncAdapter({
       initialDocuments: {
         'acc-1': {
@@ -484,7 +484,7 @@ describe('Sync Shared state integration', () => {
               { id: 'block-1', labelId: 'label-work', start: t0 - 600000, end: null, updatedAt: t0 - 30000 },
             ],
             activeLabelId: 'label-work',
-            heartbeat: t0 - 30000, // 30 seconds ago (< 2 minutes!)
+            heartbeat: t0 - 30000, // 30 seconds ago
           },
         },
       },
@@ -492,22 +492,27 @@ describe('Sync Shared state integration', () => {
 
     setup({ now: t0, storage, sync })
 
-    // On initial pull, remote heartbeat (t0 - 30s) wins over local (t0 - 10m).
-    // Because the greatest heartbeat was within 2 minutes, no Reopen prompt is shown!
+    // The returning device keeps the open Block; the greatest Heartbeat is
+    // merged without interrupting the user.
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
       expect(screen.getByRole('status', { name: 'Active label' })).toHaveTextContent('Work')
     })
+
+    const items = within(screen.getByRole('list', { name: 'Blocks' })).getAllByRole('listitem')
+    expect(items).toHaveLength(1)
+    expect(items[0]).toHaveTextContent('Work')
+    expect(items[0]).toHaveTextContent(/ongoing/i)
   })
 
-  it('when all devices have been away, greatest heartbeat decides the gap and where End Block closes the block', async () => {
+  it('when all devices have been away, the open Block stays open and keeps the Label', async () => {
     const sharedAnchor = at('2026-03-08T00:00:00.000Z')
     const t0 = at('2026-03-08T05:30:00.000Z')
 
     // Local device last seen was 10 minutes ago
     const storage = createTenMinuteAwayStorage(sharedAnchor, t0)
 
-    // Remote greatest heartbeat was 5 minutes ago (gap > 2 min)
+    // Remote greatest heartbeat was 5 minutes ago.
     const sync = createFakeSyncAdapter({
       initialDocuments: {
         'acc-1': {
@@ -528,20 +533,65 @@ describe('Sync Shared state integration', () => {
       },
     })
 
-    const { user } = setup({ now: t0, storage, sync })
+    setup({ now: t0, storage, sync })
 
-    // Reopen prompt should be shown because greatest heartbeat was 5 minutes ago (> 2 min)
-    const dialog = await screen.findByRole('dialog')
-    expect(dialog).toBeInTheDocument()
-
-    // Clicking "End Block" ends the Block at the greatest heartbeat (5 minutes ago, not 10 minutes ago)
-    await user.click(within(dialog).getByRole('button', { name: 'End Block' }))
-
-    // Active label falls back to Unaccounted
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-      expect(screen.getByRole('status', { name: 'Active label' })).toHaveTextContent('Unaccounted')
+      expect(screen.getByRole('status', { name: 'Active label' })).toHaveTextContent('Work')
     })
+
+    const items = within(screen.getByRole('list', { name: 'Blocks' })).getAllByRole('listitem')
+    expect(items).toHaveLength(1)
+    expect(items[0]).toHaveTextContent('Work')
+    expect(items[0]).toHaveTextContent(/ongoing/i)
+  })
+
+  it("another device's Label switch wins over a returning device's auto-keep", async () => {
+    const sharedAnchor = at('2026-03-08T00:00:00.000Z')
+    const t0 = at('2026-03-08T05:30:00.000Z')
+
+    // Local device was away for 10 minutes with Work open.
+    const storage = createTenMinuteAwayStorage(sharedAnchor, t0)
+
+    // Another device closed Work 5 minutes ago and started Rest.
+    const sync = createFakeSyncAdapter({
+      initialDocuments: {
+        'acc-1': {
+          version: 2,
+          shared: {
+            anchor: sharedAnchor,
+            labels: [
+              { id: 'label-unaccounted', name: 'Unaccounted', colourId: 'grey', archived: false, updatedAt: 100 },
+              { id: 'label-work', name: 'Work', colourId: 'blue', updatedAt: 100 },
+              { id: 'label-rest', name: 'Rest', colourId: 'green', updatedAt: 100 },
+            ],
+            blocks: [
+              { id: 'block-1', labelId: 'label-work', start: t0 - 600000, end: t0 - 300000, updatedAt: t0 - 300000 },
+              { id: 'block-2', labelId: 'label-rest', start: t0 - 300000, end: null, updatedAt: t0 - 300000 },
+            ],
+            activeLabelId: 'label-rest',
+            heartbeat: t0 - 300000,
+          },
+        },
+      },
+    })
+
+    setup({ now: t0, storage, sync })
+
+    // Auto-keep advances only the local Heartbeat, so the remote Label
+    // switch still wins the merge.
+    await waitFor(() => {
+      expect(screen.getByRole('status', { name: 'Active label' })).toHaveTextContent('Rest')
+    })
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    const items = within(screen.getByRole('list', { name: 'Blocks' })).getAllByRole('listitem')
+    expect(items).toHaveLength(2)
+    expect(items[0]).toHaveTextContent('Work')
+    expect(items[0]).not.toHaveTextContent(/ongoing/i)
+    expect(items[1]).toHaveTextContent('Rest')
+    expect(items[1]).toHaveTextContent(/ongoing/i)
   })
 
   it('signing out on this device stops syncing and keeps the local Shared state', async () => {

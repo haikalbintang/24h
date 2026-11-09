@@ -37,9 +37,6 @@ const status = () => screen.getByRole('status', { name: 'Active label' })
 const dayClock = () => screen.getByRole('timer', { name: 'Day clock' })
 const blocksList = () => screen.getByRole('list', { name: 'Blocks' })
 const blockItems = () => within(blocksList()).getAllByRole('listitem')
-const reopenDialog = () => screen.getByRole('dialog')
-const endBlockButton = () => screen.getByRole('button', { name: 'End Block' })
-const keepLabelButton = () => screen.getByRole('button', { name: 'Keep Label' })
 
 const readStoredState = (storage: { getItem(key: string): string | null }) => {
   const raw = storage.getItem(STATE_STORAGE_KEY)
@@ -55,7 +52,7 @@ const readStoredState = (storage: { getItem(key: string): string | null }) => {
   }
 }
 
-describe('Heartbeat and reopen prompt', () => {
+describe('Heartbeat and gap attribution', () => {
   describe('Heartbeat', () => {
     it('writes the last-seen heartbeat about every minute while a Block is open', async () => {
       const storage = createFakeStorage()
@@ -161,8 +158,8 @@ describe('Heartbeat and reopen prompt', () => {
     })
   })
 
-  describe('Reopen prompt', () => {
-    it('shows the reopen prompt when the gap since the last heartbeat exceeds two minutes', async () => {
+  describe('Gap attribution', () => {
+    it('keeps the Label and extends the open Block when the gap since the last heartbeat exceeds two minutes', async () => {
       const storage = createFakeStorage()
       const first = setup(at('2026-03-08T05:30:00.000Z'), storage)
       const user = first.user
@@ -173,10 +170,19 @@ describe('Heartbeat and reopen prompt', () => {
 
       setup(at('2026-03-08T08:30:00.000Z'), storage)
 
-      expect(reopenDialog()).toBeInTheDocument()
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(status()).toHaveTextContent('Work')
+
+      const items = blockItems()
+      expect(items).toHaveLength(1)
+      expect(items[0]).toHaveTextContent(/ongoing/i)
+      expect(items[0]).toHaveTextContent('03:00:00')
+
+      expect(dayClock()).toHaveTextContent('03:30:00')
+      expect(readStoredState(storage).blocks[0]?.end).toBeNull()
     })
 
-    it('stays silent when the gap since the last heartbeat is under two minutes', async () => {
+    it('keeps the Label when the gap since the last heartbeat is under two minutes', async () => {
       const storage = createFakeStorage()
       const first = setup(at('2026-03-08T05:30:00.000Z'), storage)
       const user = first.user
@@ -194,7 +200,7 @@ describe('Heartbeat and reopen prompt', () => {
       expect(readStoredState(storage).blocks[0]?.end).toBeNull()
     })
 
-    it('stays silent when the gap is exactly two minutes', async () => {
+    it('keeps the Label when the gap is exactly two minutes', async () => {
       const storage = createFakeStorage()
       const first = setup(at('2026-03-08T05:30:00.000Z'), storage)
       const user = first.user
@@ -210,216 +216,20 @@ describe('Heartbeat and reopen prompt', () => {
       expect(blockItems()[0]).toHaveTextContent(/ongoing/i)
     })
 
-    it('ends the Block at the last heartbeat and returns to Unaccounted when the default is chosen', async () => {
+    it('advances the Heartbeat to the present on load so the gap is not re-detected', async () => {
       const storage = createFakeStorage()
       const first = setup(at('2026-03-08T05:30:00.000Z'), storage)
       const user = first.user
 
       await createLabel(user, 'Work')
       await user.click(screen.getByRole('button', { name: 'Work' }))
-
-      act(() => first.runtime.clock.advance(60 * SECOND_MS))
-
       first.view.unmount()
 
-      const second = setup(at('2026-03-08T08:30:00.000Z'), storage)
-      const secondUser = second.user
+      setup(at('2026-03-08T08:30:00.000Z'), storage)
 
-      expect(reopenDialog()).toBeInTheDocument()
-
-      await secondUser.click(endBlockButton())
-
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-      expect(status()).toHaveTextContent('Unaccounted')
-
-      const items = blockItems()
-      expect(items).toHaveLength(2)
-      expect(items[0]).toHaveTextContent('Work')
-      expect(items[0]).toHaveTextContent('00:30:00')
-      expect(items[0]).toHaveTextContent('00:31:00')
-      expect(items[0]).not.toHaveTextContent(/ongoing/i)
-      expect(items[1]).toHaveTextContent('Unaccounted')
-      expect(items[1]).toHaveTextContent(/ongoing/i)
-
-      const stored = readStoredState(storage)
-      expect(stored.blocks[0]?.end).toBe(at('2026-03-08T05:31:00.000Z'))
-      expect(stored.activeLabelId).toBe('label-unaccounted')
-      expect(dayClock()).toHaveTextContent('03:30:00')
-    })
-
-    it("closes the reopen prompt with the Escape key", async () => {
-      const storage = createFakeStorage();
-      const first = setup(at("2026-03-08T05:30:00.000Z"), storage);
-      const user = first.user
-
-      await createLabel(user, 'Work')
-      await user.click(screen.getByRole('button', { name: 'Work' }))
-      first.view.unmount()
-
-      const second = setup(at('2026-03-08T08:30:00.000Z'), storage)
-
-      expect(reopenDialog()).toBeInTheDocument()
-
-      await second.user.keyboard('{Escape}')
-
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-      expect(status()).toHaveTextContent('Work')
-    })
-
-    it('traps focus within the reopen prompt while cycling with the keyboard', async () => {
-      const storage = createFakeStorage();
-      const first = setup(at('2026-03-08T05:30:00.000Z'), storage)
-      const user = first.user
-
-      await createLabel(user, 'Work')
-      await user.click(screen.getByRole('button', { name: 'Work' }))
-      first.view.unmount()
-
-      const second = setup(at('2026-03-08T08:30:00.000Z'), storage)
-
-      expect(reopenDialog()).toBeInTheDocument()
-
-      await second.user.keyboard('{Tab}')
-
-      expect(keepLabelButton()).toHaveFocus()
-
-      await second.user.keyboard('{Tab}')
-
-      expect(endBlockButton()).toHaveFocus()
-    })
-
-    it('focuses End Block and ends the Block on Enter, leaving the gap Unaccounted', async () => {
-      const storage = createFakeStorage()
-      const first = setup(at('2026-03-08T05:30:00.000Z'), storage)
-      const user = first.user
-
-      await createLabel(user, 'Work')
-      await user.click(screen.getByRole('button', { name: 'Work' }))
-
-      act(() => first.runtime.clock.advance(60 * SECOND_MS))
-
-      first.view.unmount()
-
-      const second = setup(at('2026-03-08T08:30:00.000Z'), storage)
-
-      expect(reopenDialog()).toBeInTheDocument()
-      expect(endBlockButton()).toHaveFocus()
-
-      await second.user.keyboard('{Enter}')
-
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-      expect(status()).toHaveTextContent('Unaccounted')
-      expect(readStoredState(storage).blocks[0]?.end).toBe(
-        at('2026-03-08T05:31:00.000Z'),
+      expect(readStoredState(storage).lastSeen).toBe(
+        at('2026-03-08T08:30:00.000Z'),
       )
-    })
-
-    it('ignores number-key shortcuts while the prompt is open', async () => {
-      const storage = createFakeStorage()
-      const first = setup(at('2026-03-08T05:30:00.000Z'), storage)
-      const user = first.user
-
-      await createLabel(user, 'Work')
-      await createLabel(user, 'Rest')
-      await user.click(screen.getByRole('button', { name: 'Work' }))
-
-      first.view.unmount()
-
-      const second = setup(at('2026-03-08T08:30:00.000Z'), storage)
-
-      expect(reopenDialog()).toBeInTheDocument()
-
-      await second.user.keyboard('2')
-
-      expect(reopenDialog()).toBeInTheDocument()
-      expect(status()).toHaveTextContent('Work')
-    })
-
-    it('does not record a zero-length Block when End lands exactly on a Day boundary', async () => {
-      const storage = createFakeStorage()
-      const first = setup(at('2026-03-08T04:59:00.000Z'), storage)
-      const user = first.user
-
-      await createLabel(user, 'Work')
-      await user.click(screen.getByRole('button', { name: 'Work' }))
-
-      act(() => first.runtime.clock.advance(60 * SECOND_MS))
-
-      first.view.unmount()
-
-      const second = setup(at('2026-03-08T05:10:00.000Z'), storage)
-      const secondUser = second.user
-
-      expect(reopenDialog()).toBeInTheDocument()
-
-      await secondUser.click(endBlockButton())
-
-      const stored = readStoredState(storage)
-      expect(stored.blocks).toHaveLength(2)
-      expect(stored.blocks[0]?.end).toBe(at('2026-03-08T05:00:00.000Z'))
-      expect(stored.blocks[1]).toMatchObject({
-        labelId: 'label-unaccounted',
-        end: null,
-      })
-    })
-
-    it('splits the ended Block at Day boundaries crossed before the last heartbeat', async () => {
-      const storage = createFakeStorage()
-      const first = setup(at('2026-03-08T04:58:00.000Z'), storage)
-      const user = first.user
-
-      await createLabel(user, 'Work')
-      await user.click(screen.getByRole('button', { name: 'Work' }))
-
-      act(() => first.runtime.clock.advance(60 * SECOND_MS))
-      act(() => first.runtime.clock.advance(60 * SECOND_MS))
-      act(() => first.runtime.clock.advance(60 * SECOND_MS))
-
-      first.view.unmount()
-
-      const second = setup(at('2026-03-08T05:10:00.000Z'), storage)
-      const secondUser = second.user
-
-      expect(reopenDialog()).toBeInTheDocument()
-
-      await secondUser.click(endBlockButton())
-
-      const stored = readStoredState(storage)
-      expect(stored.blocks).toHaveLength(3)
-      expect(stored.blocks[0]?.end).toBe(at('2026-03-08T05:00:00.000Z'))
-      expect(stored.blocks[1]?.end).toBe(at('2026-03-08T05:01:00.000Z'))
-      expect(stored.blocks[2]).toMatchObject({
-        labelId: 'label-unaccounted',
-        end: null,
-      })
-    })
-
-    it('keeps the label through the gap and extends the Block to the present', async () => {
-      const storage = createFakeStorage()
-      const first = setup(at('2026-03-08T05:30:00.000Z'), storage)
-      const user = first.user
-
-      await createLabel(user, 'Work')
-      await user.click(screen.getByRole('button', { name: 'Work' }))
-
-      first.view.unmount()
-
-      const second = setup(at('2026-03-08T08:30:00.000Z'), storage)
-      const secondUser = second.user
-
-      expect(reopenDialog()).toBeInTheDocument()
-
-      await secondUser.click(keepLabelButton())
-
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-      expect(status()).toHaveTextContent('Work')
-
-      const items = blockItems()
-      expect(items).toHaveLength(1)
-      expect(items[0]).toHaveTextContent(/ongoing/i)
-      expect(items[0]).toHaveTextContent('03:00:00')
-
-      expect(dayClock()).toHaveTextContent('03:30:00')
     })
 
     it('splits the kept Block at the Day boundary crossed during the gap', async () => {
@@ -434,12 +244,10 @@ describe('Heartbeat and reopen prompt', () => {
 
       first.view.unmount()
 
-      const second = setup(at('2026-03-09T06:30:00.000Z'), storage)
-      const secondUser = second.user
+      setup(at('2026-03-09T06:30:00.000Z'), storage)
 
-      expect(reopenDialog()).toBeInTheDocument()
-
-      await secondUser.click(keepLabelButton())
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(status()).toHaveTextContent('Work')
 
       const items = blockItems()
       expect(items).toHaveLength(1)
@@ -447,10 +255,38 @@ describe('Heartbeat and reopen prompt', () => {
       expect(items[0]).toHaveTextContent('00:00:00 – Ongoing')
       expect(items[0]).toHaveTextContent('01:30:00')
 
+      // The open Block is stored unsplit; per-Day splitting is derived.
       const stored = readStoredState(storage)
-      expect(stored.blocks).toHaveLength(2)
-      expect(stored.blocks[0]?.end).toBe(at('2026-03-09T05:00:00.000Z'))
-      expect(stored.blocks[1]?.end).toBeNull()
+      expect(stored.blocks).toHaveLength(1)
+      expect(stored.blocks[0]?.end).toBeNull()
+    })
+
+    it('does not create a zero-length Block when the gap crosses a Day boundary', async () => {
+      const storage = createFakeStorage()
+      const first = setup(at('2026-03-08T04:59:00.000Z'), storage)
+      const user = first.user
+
+      await createLabel(user, 'Work')
+      await user.click(screen.getByRole('button', { name: 'Work' }))
+
+      act(() => first.runtime.clock.advance(60 * SECOND_MS))
+
+      first.view.unmount()
+
+      setup(at('2026-03-08T05:10:00.000Z'), storage)
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(status()).toHaveTextContent('Work')
+
+      const items = blockItems()
+      expect(items).toHaveLength(1)
+      expect(items[0]).toHaveTextContent('Work')
+      expect(items[0]).toHaveTextContent('00:00:00 – Ongoing')
+      expect(items[0]).toHaveTextContent('00:10:00')
+
+      const stored = readStoredState(storage)
+      expect(stored.blocks).toHaveLength(1)
+      expect(stored.blocks[0]?.end).toBeNull()
     })
   })
 })

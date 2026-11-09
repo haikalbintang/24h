@@ -1,6 +1,5 @@
 import { createLiveBlock, getNextBlockId } from '@/domain/blocks'
 import type { Block } from '@/domain/blocks'
-import { isReopenGap } from '@/domain/heartbeat'
 import {
   createUnaccountedLabel,
   getLabelColour,
@@ -505,19 +504,13 @@ export function migratePersistedState(
   return createFreshPersistedState(now)
 }
 
-function advanceHeartbeatWithinSilentWindow(
+function advanceHeartbeat(
   state: PersistedState,
   now: number,
 ): PersistedState {
   const openBlock = state.shared.blocks.find((block) => block.end === null)
 
   if (openBlock === undefined) {
-    return state
-  }
-
-  const heartbeat = state.shared.heartbeat ?? openBlock.start
-
-  if (isReopenGap(heartbeat, now)) {
     return state
   }
 
@@ -543,7 +536,7 @@ export function loadPersistedState(runtime: Runtime, now: number): PersistedStat
       ? createFreshPersistedState(now)
       : restored
 
-  return advanceHeartbeatWithinSilentWindow(state, now)
+  return advanceHeartbeat(state, now)
 }
 
 export function savePersistedState(runtime: Runtime, state: PersistedState): void {
