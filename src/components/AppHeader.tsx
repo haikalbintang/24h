@@ -37,21 +37,23 @@ export default function AppHeader({
 }: AppHeaderProps) {
   return (
     <header className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-800 pb-5">
-      <h1 className="text-xs font-semibold tracking-[0.28em] text-neutral-500 uppercase">
-        Day Labels
-      </h1>
-      <div className="flex flex-wrap items-center gap-3">
-        <button type="button" onClick={onOpenAccount} className={accountButtonClass}>
-          Account
-        </button>
+      <div className="flex items-center gap-2">
+        <h1 className="text-xs font-semibold tracking-[0.28em] text-neutral-500 uppercase">
+          Day Labels
+        </h1>
         <button
           type="button"
           onClick={onStartTour}
           aria-label="Show tour"
           title="Show tour"
-          className={accountButtonClass}
+          className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-neutral-700 bg-neutral-900 text-[11px] font-medium text-neutral-400 transition-colors hover:border-neutral-500 hover:text-neutral-200 focus:border-neutral-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
         >
           ?
+        </button>
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <button type="button" onClick={onOpenAccount} className={accountButtonClass}>
+          Account
         </button>
         <ThemeToggle theme={theme} onToggle={onToggleTheme} />
         <select
