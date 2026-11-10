@@ -121,6 +121,23 @@ describe("Totals", () => {
     expect(within(table).getByRole("columnheader", { name: "Total" })).toBeInTheDocument();
   });
 
+  it("splits duration of bar into xh and ym when duration has both hours and minutes", async () => {
+    const { runtime, user } = setup(at("2026-03-08T05:00:00.000Z"));
+
+    await createLabel(user, "Study");
+    await user.click(screen.getByRole("button", { name: "Study" }));
+    act(() => runtime.clock.advance(150 * MINUTE_MS)); // 2h 30m
+    await user.click(screen.getByRole("button", { name: "Study" }));
+
+    const table = sevenDayTotals();
+    const rows = within(table).getAllByRole("row");
+    const studyRow = rows.find((row) => within(row).queryByText("Study"));
+    expect(studyRow).toBeDefined();
+
+    expect(within(studyRow!).getByText("2h")).toBeInTheDocument();
+    expect(within(studyRow!).getByText("30m")).toBeInTheDocument();
+  });
+
   it("shows label-coloured timeline segments for the selected Day", async () => {
     const { runtime, user } = setup(at("2026-03-08T05:00:00.000Z"));
 

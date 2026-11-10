@@ -20,6 +20,7 @@ interface AppHeaderProps {
   onSelectDay: (dayIndex: number) => void;
   onExportJson: () => void;
   onExportCsv: () => void;
+  isSignedIn?: boolean;
 }
 
 export default function AppHeader({
@@ -32,6 +33,7 @@ export default function AppHeader({
   onSelectDay,
   onExportJson,
   onExportCsv,
+  isSignedIn = false,
 }: AppHeaderProps) {
   return (
     <header className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-800 pb-5">
@@ -70,10 +72,12 @@ export default function AppHeader({
       </div>
       <div className="flex w-full flex-col gap-0.5 text-xs text-neutral-500">
         <p>No import is available; an exported file cannot be restored here.</p>
-        <p>
-          Clearing site data is permanent and cannot be undone; keep an export as
-          a backup.
-        </p>
+        {!isSignedIn ? (
+          <p>
+            Clearing site data is permanent and cannot be undone; keep an export as
+            a backup.
+          </p>
+        ) : null}
       </div>
     </header>
   );

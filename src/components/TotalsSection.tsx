@@ -396,7 +396,7 @@ export default function TotalsSection(props: TotalsSectionProps) {
                       <span
                         role="cell"
                         aria-label={`${row.name} scale: 0 to ${formatClock(maxDailyMs)}`}
-                        className="flex h-40 flex-col justify-between border-r border-neutral-800 pr-2 text-right font-mono text-xs leading-none tabular-nums text-neutral-500"
+                        className="flex h-40 flex-col justify-between border-r border-neutral-800 pr-2 text-right font-sans text-[11px] font-medium leading-none tabular-nums text-neutral-500 sm:font-mono sm:text-xs sm:font-normal"
                       >
                         <span aria-hidden="true">{formatScale(maxDailyMs)}</span>
                         <span aria-hidden="true">
@@ -411,6 +411,9 @@ export default function TotalsSection(props: TotalsSectionProps) {
                             : 0;
                         // Text fits inside the bar once it is at least ~1/5 of the column height.
                         const labelInside = heightPct >= 20;
+                        const totalMinutes = Math.round(ms / 60000);
+                        const hours = Math.floor(totalMinutes / 60);
+                        const minutes = totalMinutes % 60;
 
                         return (
                           <span
@@ -436,7 +439,7 @@ export default function TotalsSection(props: TotalsSectionProps) {
                             {ms > 0 ? (
                               <span
                                 aria-hidden="true"
-                                className={`absolute inset-x-0 flex justify-center font-mono text-xs leading-none tabular-nums ${labelInside
+                                className={`absolute inset-x-0 flex justify-center font-sans text-[11px] font-medium leading-tight tabular-nums sm:font-mono sm:text-xs sm:font-normal sm:leading-none ${labelInside
                                   ? "bottom-1 text-neutral-50 [text-shadow:0_1px_2px_rgba(0,0,0,0.9)]"
                                   : "text-neutral-400"
                                   }`}
@@ -448,7 +451,14 @@ export default function TotalsSection(props: TotalsSectionProps) {
                                     }
                                 }
                               >
-                                {formatScale(ms)}
+                                {hours > 0 && minutes > 0 ? (
+                                  <span className="flex flex-col items-center leading-tight sm:flex-row sm:justify-center sm:leading-none">
+                                    <span>{hours}h</span>
+                                    <span>{minutes}m</span>
+                                  </span>
+                                ) : (
+                                  <span>{formatScale(ms)}</span>
+                                )}
                               </span>
                             ) : null}
                           </span>

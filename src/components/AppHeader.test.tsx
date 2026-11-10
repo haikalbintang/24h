@@ -29,11 +29,18 @@ function renderHeader(overrides: Partial<Parameters<typeof AppHeader>[0]> = {}) 
 }
 
 describe("AppHeader", () => {
-  it("warns that there is no import and that clearing site data is permanent", () => {
-    renderHeader();
+  it("warns that there is no import and that clearing site data is permanent when signed out", () => {
+    renderHeader({ isSignedIn: false });
 
     expect(screen.getByText(/no import/i)).toBeInTheDocument();
     expect(screen.getByText(/clearing site data/i)).toBeInTheDocument();
+  });
+
+  it("hides clearing site data warning when signed in", () => {
+    renderHeader({ isSignedIn: true });
+
+    expect(screen.getByText(/no import/i)).toBeInTheDocument();
+    expect(screen.queryByText(/clearing site data/i)).not.toBeInTheDocument();
   });
 
   it("has no import control", () => {

@@ -416,7 +416,7 @@ describe("Block edit/split UX", () => {
     ).toHaveFocus();
   });
 
-  it("focuses the split input and prefills a valid midpoint", async () => {
+  it("focuses the split input and prefills a valid midpoint for a finished block", async () => {
     const { user } = await setupTwoBlocks();
 
     await user.click(
@@ -436,6 +436,27 @@ describe("Block edit/split UX", () => {
     expect(input).toHaveValue("00:35:00");
     expect(input).toHaveAttribute("inputmode", "numeric");
     expect(input).toHaveAttribute("placeholder", "HH:MM:SS");
+  });
+
+  it("prefills now for the active block", async () => {
+    const { user } = await setupTwoBlocks();
+
+    // blockItems()[2] is the active Unaccounted block
+    await user.click(
+      within(blockItems()[2]).getByRole("button", { name: "Block actions" }),
+    );
+    await user.click(
+      within(screen.getByRole("menu", { name: "Block actions" })).getByRole(
+        "menuitem",
+        { name: "Split" },
+      ),
+    );
+
+    const form = screen.getByRole("form", { name: "Split block" });
+    const input = within(form).getByRole("textbox", { name: "Split at" });
+
+    expect(input).toHaveFocus();
+    expect(input).toHaveValue("00:50:00");
   });
 
   it("auto-formats typed digits into HH:MM:SS", async () => {

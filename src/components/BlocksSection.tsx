@@ -136,14 +136,19 @@ export default function BlocksSection({
   };
 
   const startSplitting = (block: Block) => {
-    const effectiveEnd = block.end ?? now;
-    const midpoint = block.start + Math.floor((effectiveEnd - block.start) / 2);
-    const min = block.start + 1;
-    const max = effectiveEnd - 1;
-    const clampedAt = Math.min(Math.max(midpoint, min), Math.max(min, max));
+    let splitAt: number;
+    if (block.end === null) {
+      splitAt = Math.max(0, now - dayStart);
+    } else {
+      const midpoint = block.start + Math.floor((block.end - block.start) / 2);
+      const min = block.start + 1;
+      const max = block.end - 1;
+      const clampedAt = Math.min(Math.max(midpoint, min), Math.max(min, max));
+      splitAt = clampedAt - dayStart;
+    }
 
     setSplittingId(block.id);
-    setSplitText(formatClock(clampedAt - dayStart));
+    setSplitText(formatClock(splitAt));
     setSplitError(null);
   };
 

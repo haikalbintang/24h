@@ -208,6 +208,7 @@ export default function App({ runtime }: AppProps) {
           onSelectDay={selectDay}
           onExportJson={exportJson}
           onExportCsv={exportCsv}
+          isSignedIn={persisted.device.session !== null}
         />
 
         <DayClock clock={day.clock} />
