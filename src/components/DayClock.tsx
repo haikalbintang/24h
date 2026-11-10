@@ -4,7 +4,10 @@ interface DayClockProps {
 
 export default function DayClock({ clock }: DayClockProps) {
   return (
-    <section className="flex flex-1 flex-col items-center justify-center py-16">
+    <section
+      data-tour="day-clock"
+      className="flex flex-1 flex-col items-center justify-center py-16"
+    >
       <p className="text-xs font-medium tracking-[0.32em] text-neutral-500 uppercase">
         Day clock
       </p>

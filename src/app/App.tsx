@@ -15,6 +15,7 @@ import TotalsSection from "@/components/TotalsSection";
 import AccountScreen from "@/components/AccountScreen";
 import AppHeader from "@/components/AppHeader";
 import DayClock from "@/components/DayClock";
+import TourGuide from "@/components/TourGuide";
 import UndoToast from "@/components/UndoToast";
 import { useBlocks } from "@/hooks/useBlocks";
 import { useSharedState } from "@/hooks/useSharedState";
@@ -43,6 +44,9 @@ export default function App({ runtime }: AppProps) {
     useDayView(anchor, now);
 
   const [accountOpen, setAccountOpen] = useState(false);
+  const [tourRunning, setTourRunning] = useState(
+    () => !persisted.device.tourSeen
+  );
 
   const {
     blocks,
@@ -127,6 +131,32 @@ export default function App({ runtime }: AppProps) {
     now,
   });
 
+  const markTourSeen = useCallback(() => {
+    setPersisted((current) =>
+      current.device.tourSeen
+        ? current
+        : {
+            ...current,
+            device: { ...current.device, tourSeen: true },
+          },
+    );
+  }, [setPersisted]);
+
+  const handleTourEnd = useCallback(() => {
+    markTourSeen();
+    setTourRunning(false);
+  }, [markTourSeen]);
+
+  // An overlay opening mid-tour ends it; every end marks the tour seen.
+  // firstSignIn arrives asynchronously from the sync coordinator, so this
+  // effect is the seam that reacts to either overlay opening.
+  useEffect(() => {
+    if (tourRunning && (accountOpen || firstSignIn !== null)) {
+      // oxlint-disable-next-line react/set-state-in-effect
+      handleTourEnd();
+    }
+  }, [accountOpen, firstSignIn, handleTourEnd, tourRunning]);
+
   const isFirstRender = useRef<boolean>(true);
 
   useEffect(() => {
@@ -172,6 +202,7 @@ export default function App({ runtime }: AppProps) {
           theme={persisted.device.theme}
           onToggleTheme={toggleTheme}
           onOpenAccount={() => setAccountOpen(true)}
+          onStartTour={() => setTourRunning(true)}
           selectedDayIndex={selectedDay.dayIndex}
           dayOptions={dayOptions}
           onSelectDay={selectDay}
@@ -216,6 +247,12 @@ export default function App({ runtime }: AppProps) {
         archiveUndoVisible={archiveUndoVisible}
         error={undoError}
         onUndo={undoArchive}
+      />
+
+      <TourGuide
+        run={tourRunning}
+        theme={persisted.device.theme}
+        onEnd={handleTourEnd}
       />
 
       {firstSignIn ? (

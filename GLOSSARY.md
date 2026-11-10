@@ -61,7 +61,7 @@ The Anchor, Labels, Blocks, Active label, and Heartbeat that an Account keeps co
 _Avoid_: cloud data, server data
 
 **Device state**:
-Data that belongs to one installation and is not part of Shared state, such as the theme, the Account session, and the Account whose first sign-in was last resolved. Rotated session credentials may be coordinated through the Account so linked devices stay signed in, but the session remains device-local and is cleared only on that device.
+Data that belongs to one installation and is not part of Shared state, such as the theme, the Account session, the Account whose first sign-in was last resolved, and whether the guided tour has been shown. Rotated session credentials may be coordinated through the Account so linked devices stay signed in, but the session remains device-local and is cleared only on that device.
 _Avoid_: local data, cache
 
 **First sign-in prompt**:

@@ -208,7 +208,7 @@ export default function BlocksSection({
         </button>
       </h2>
       {isBlocksOpen ? (
-        <div id="blocks-panel" className="grid gap-3">
+        <div id="blocks-panel" data-tour="blocks" className="grid gap-3">
           {todaysBlocks.length === 0 ? (
             <p className="text-sm text-neutral-400">No blocks yet.</p>
           ) : (

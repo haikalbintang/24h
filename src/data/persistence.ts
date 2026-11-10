@@ -33,6 +33,8 @@ export interface DeviceState {
   session: AccountSession | null
   /** The Account whose first sign-in was last resolved on this device. */
   syncedAccountId?: string
+  /** Whether the guided tour has been shown to an end on this device. */
+  tourSeen?: boolean
 }
 
 export interface PersistedDocumentV2 {
@@ -250,6 +252,7 @@ function parsePersistedStateV2(
         ...(typeof device.syncedAccountId === 'string'
           ? { syncedAccountId: device.syncedAccountId }
           : {}),
+        ...(device.tourSeen === true ? { tourSeen: true } : {}),
       },
     },
     now,

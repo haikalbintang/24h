@@ -89,6 +89,19 @@ dialog:modal {
   overscroll-behavior: contain;
 }
 
+/*
+ * Joyride portals its tooltips to document.body, outside the [data-theme]
+ * scope, so tooltip buttons get theme-agnostic hover and focus styles here.
+ */
+.react-joyride__tooltip button:hover {
+  opacity: 0.85;
+}
+
+.react-joyride__tooltip button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
 dialog::backdrop {
   overflow: hidden;
   overscroll-behavior: contain;

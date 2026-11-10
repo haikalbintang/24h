@@ -14,6 +14,7 @@ function renderHeader(overrides: Partial<Parameters<typeof AppHeader>[0]> = {}) 
     theme: THEME_DARK,
     onToggleTheme: () => {},
     onOpenAccount: () => {},
+    onStartTour: () => {},
     selectedDayIndex: 1,
     dayOptions,
     onSelectDay: () => {},
@@ -55,6 +56,17 @@ describe("AppHeader", () => {
     await user.click(screen.getByRole("button", { name: "Account" }));
 
     expect(onOpenAccount).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts the tour from the help button", async () => {
+    const onStartTour = vi.fn();
+    const user = userEvent.setup();
+
+    renderHeader({ onStartTour });
+
+    await user.click(screen.getByRole("button", { name: "Show tour" }));
+
+    expect(onStartTour).toHaveBeenCalledTimes(1);
   });
 
   it("lists every Day and reports the selected one", async () => {

@@ -192,7 +192,7 @@ export default function TotalsSection(props: TotalsSectionProps) {
       </h2>
 
       {isTotalsOpen ? (
-        <div id="totals-panel">
+        <div id="totals-panel" data-tour="totals">
           <div className="mt-4 grid gap-4 rounded-xl border border-neutral-800 bg-neutral-900/60 p-5 sm:px-8">
             <h3 className="text-sm font-semibold text-neutral-200">Selected day</h3>
             <div className="grid items-center gap-6 sm:grid-cols-[auto_1fr]">
@@ -249,7 +249,10 @@ export default function TotalsSection(props: TotalsSectionProps) {
             </div>
           </div>
 
-          <div className="mt-4 grid gap-3 rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
+          <div
+            data-tour="timeline"
+            className="mt-4 grid gap-3 rounded-xl border border-neutral-800 bg-neutral-900/60 p-5"
+          >
             <h3 className="text-sm font-semibold text-neutral-200">Timeline</h3>
             <ul
               aria-label="Timeline"

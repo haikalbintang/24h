@@ -14,6 +14,7 @@ interface AppHeaderProps {
   theme: ThemeId;
   onToggleTheme: () => void;
   onOpenAccount: () => void;
+  onStartTour: () => void;
   selectedDayIndex: number;
   dayOptions: DayOption[];
   onSelectDay: (dayIndex: number) => void;
@@ -25,6 +26,7 @@ export default function AppHeader({
   theme,
   onToggleTheme,
   onOpenAccount,
+  onStartTour,
   selectedDayIndex,
   dayOptions,
   onSelectDay,
@@ -39,6 +41,15 @@ export default function AppHeader({
       <div className="flex flex-wrap items-center gap-3">
         <button type="button" onClick={onOpenAccount} className={accountButtonClass}>
           Account
+        </button>
+        <button
+          type="button"
+          onClick={onStartTour}
+          aria-label="Show tour"
+          title="Show tour"
+          className={accountButtonClass}
+        >
+          ?
         </button>
         <ThemeToggle theme={theme} onToggle={onToggleTheme} />
         <select

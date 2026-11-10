@@ -289,7 +289,7 @@ export default function LabelsSection({
       </div>
 
       {isLabelsOpen ? (
-        <div id="labels-panel" className="grid gap-6">
+        <div id="labels-panel" data-tour="labels" className="grid gap-6">
           {labels.length === 0 ? (
             <p className="text-sm text-neutral-400">No labels yet.</p>
           ) : null}
@@ -332,6 +332,7 @@ export default function LabelsSection({
             <li>
               <button
                 type="button"
+                data-tour="new-label"
                 aria-expanded={isCreateOpen}
                 aria-controls="create-label-form"
                 onClick={toggleCreateForm}
