@@ -7,6 +7,7 @@ import {
   isLabelArchived,
   isUnaccountedLabel,
   LABEL_COLOURS,
+  LABEL_SUGGESTIONS,
 } from "@/domain/labels";
 import type { Label, LabelColourId, LabelId } from "@/domain/labels";
 
@@ -96,6 +97,7 @@ export default function LabelsSection({
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isManageOpen, setIsManageOpen] = useState(false);
   const [isLabelsOpen, setIsLabelsOpen] = useState(true);
+  const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
 
   const sortedLabels = useMemo(
     () =>
@@ -144,6 +146,7 @@ export default function LabelsSection({
   const toggleCreateForm = () => {
     setIsCreateOpen((open) => !open);
     setCreateError(null);
+    setIsSuggestionsOpen(false);
   };
 
   const createLabel = (event: React.FormEvent<HTMLFormElement>) => {
@@ -160,6 +163,7 @@ export default function LabelsSection({
     setNewLabelName("");
     setNewLabelColourId(LABEL_COLOURS[0].id);
     setCreateError(null);
+    setIsSuggestionsOpen(false);
     setIsCreateOpen(false); // collapse after creating
   };
 
@@ -364,6 +368,8 @@ export default function LabelsSection({
                 <input
                   id="new-label-name"
                   name="label-name"
+                  role="textbox"
+                  list="new-label-suggestions"
                   autoComplete="off"
                   autoFocus
                   value={newLabelName}
@@ -377,6 +383,11 @@ export default function LabelsSection({
                   }}
                   className="rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-neutral-400 focus-visible:ring-2 focus-visible:ring-neutral-600"
                 />
+                <datalist id="new-label-suggestions">
+                  {LABEL_SUGGESTIONS.map((suggestion) => (
+                    <option key={suggestion} value={suggestion} />
+                  ))}
+                </datalist>
                 {createError ? (
                   <p
                     id="new-label-name-error"
@@ -385,6 +396,54 @@ export default function LabelsSection({
                   >
                     {createError}
                   </p>
+                ) : null}
+              </div>
+              <div className="grid gap-2">
+                <button
+                  type="button"
+                  aria-expanded={isSuggestionsOpen}
+                  aria-controls="new-label-suggestions-panel"
+                  onClick={() => setIsSuggestionsOpen((open) => !open)}
+                  className="flex w-fit items-center gap-1.5 text-xs font-medium text-neutral-400 hover:text-neutral-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600"
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`inline-block motion-safe:transition-transform ${isSuggestionsOpen ? "rotate-90" : ""}`}
+                  >
+                    ▸
+                  </span>
+                  Suggestions
+                </button>
+                {isSuggestionsOpen ? (
+                  <div
+                    id="new-label-suggestions-panel"
+                    role="group"
+                    aria-label="Label suggestions"
+                    className="flex flex-wrap gap-1.5"
+                  >
+                    {LABEL_SUGGESTIONS.map((suggestion) => {
+                      const isSelected = newLabelName === suggestion;
+                      return (
+                        <button
+                          key={suggestion}
+                          type="button"
+                          aria-label={`Suggest ${suggestion}`}
+                          aria-pressed={isSelected}
+                          onClick={() => {
+                            setNewLabelName(suggestion);
+                            setCreateError(null);
+                          }}
+                          className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-600 ${
+                            isSelected
+                              ? "border-neutral-200 bg-neutral-200 text-neutral-950"
+                              : "border-neutral-700 bg-neutral-950 text-neutral-300 hover:border-neutral-500 hover:text-neutral-100"
+                          }`}
+                        >
+                          {suggestion}
+                        </button>
+                      );
+                    })}
+                  </div>
                 ) : null}
               </div>
               <ColourRadioGroup

@@ -12,6 +12,26 @@ export const LABEL_COLOURS = [
 
 export type LabelColourId = (typeof LABEL_COLOURS)[number]['id']
 
+export const LABEL_SUGGESTIONS = [
+  'Anime',
+  'Bath',
+  'Book',
+  'Code',
+  'Eat',
+  'Exercise',
+  'Game',
+  'Manga',
+  'Quran',
+  'Salah',
+  'Scroll',
+  'Sleep',
+  'Spare',
+  'Work',
+  'YouTube',
+] as const
+
+export type LabelSuggestion = (typeof LABEL_SUGGESTIONS)[number]
+
 export type LabelId = string
 
 export interface Label {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   LABEL_COLOURS,
+  LABEL_SUGGESTIONS,
   UNACCOUNTED_LABEL_COLOUR_ID,
   UNACCOUNTED_LABEL_ID,
   UNACCOUNTED_LABEL_NAME,
@@ -107,6 +108,33 @@ describe("labels domain", () => {
 
     it("accepts a unique valid name", () => {
       expect(getLabelNameError("Exercise", existing)).toBeNull();
+    });
+  });
+
+  describe("LABEL_SUGGESTIONS", () => {
+    it("provides the canonical suggestions for new labels in alphabetical order", () => {
+      expect(LABEL_SUGGESTIONS).toEqual([
+        "Anime",
+        "Bath",
+        "Book",
+        "Code",
+        "Eat",
+        "Exercise",
+        "Game",
+        "Manga",
+        "Quran",
+        "Salah",
+        "Scroll",
+        "Sleep",
+        "Spare",
+        "Work",
+        "YouTube",
+      ]);
+    });
+
+    it("contains no duplicates", () => {
+      const set = new Set(LABEL_SUGGESTIONS);
+      expect(set.size).toBe(LABEL_SUGGESTIONS.length);
     });
   });
 });

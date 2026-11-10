@@ -2,6 +2,7 @@ import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import App from '@/app/App'
+import { LABEL_SUGGESTIONS } from '@/domain/labels'
 import { createTestRuntime } from '@/testing/runtime'
 
 const SECOND_MS = 1000
@@ -361,5 +362,108 @@ describe('Label archive, restore, and undo', () => {
     expect(
       screen.queryByRole('button', { name: 'Undo' }),
     ).not.toBeInTheDocument()
+  })
+})
+
+describe('Label suggestions', () => {
+  it('is collapsed by default, can be expanded and collapsed, and exposes datalist options', async () => {
+    const { user } = setup()
+
+    await user.click(screen.getByRole('button', { name: 'New label' }))
+    const form = createForm()
+
+    const toggleButton = within(form).getByRole('button', {
+      name: 'Suggestions',
+    })
+    expect(toggleButton).toHaveAttribute('aria-expanded', 'false')
+    expect(
+      within(form).queryByRole('group', { name: 'Label suggestions' }),
+    ).not.toBeInTheDocument()
+
+    // Expand suggestions
+    await user.click(toggleButton)
+    expect(toggleButton).toHaveAttribute('aria-expanded', 'true')
+
+    const suggestionsGroup = within(form).getByRole('group', {
+      name: 'Label suggestions',
+    })
+    for (const suggestion of LABEL_SUGGESTIONS) {
+      expect(
+        within(suggestionsGroup).getByRole('button', {
+          name: `Suggest ${suggestion}`,
+        }),
+      ).toBeInTheDocument()
+    }
+
+    // Collapse suggestions again
+    await user.click(toggleButton)
+    expect(toggleButton).toHaveAttribute('aria-expanded', 'false')
+    expect(
+      within(form).queryByRole('group', { name: 'Label suggestions' }),
+    ).not.toBeInTheDocument()
+
+    // Native datalist options remain available regardless of collapse state
+    const datalist = form.querySelector('datalist#new-label-suggestions')
+    expect(datalist).toBeInTheDocument()
+    const options = datalist?.querySelectorAll('option')
+    expect(options).toHaveLength(LABEL_SUGGESTIONS.length)
+  })
+
+  it('fills the label name input when clicking a suggestion and creates the label', async () => {
+    const { user } = setup()
+
+    await user.click(screen.getByRole('button', { name: 'New label' }))
+    const form = createForm()
+    const nameInput = within(form).getByRole('textbox', {
+      name: 'New label name',
+    })
+
+    // Expand suggestions
+    await user.click(within(form).getByRole('button', { name: 'Suggestions' }))
+
+    const animeSuggestion = within(form).getByRole('button', {
+      name: 'Suggest Anime',
+    })
+    await user.click(animeSuggestion)
+
+    expect(nameInput).toHaveValue('Anime')
+    expect(animeSuggestion).toHaveAttribute('aria-pressed', 'true')
+
+    await user.click(within(form).getByRole('button', { name: 'Create label' }))
+
+    const list = screen.getByRole('list', { name: 'Labels' })
+    expect(
+      within(list).getByRole('button', { name: 'Anime' }),
+    ).toBeInTheDocument()
+  })
+
+  it('updates the active suggestion and input value when switching suggestions', async () => {
+    const { user } = setup()
+
+    await user.click(screen.getByRole('button', { name: 'New label' }))
+    const form = createForm()
+    const nameInput = within(form).getByRole('textbox', {
+      name: 'New label name',
+    })
+
+    // Expand suggestions
+    await user.click(within(form).getByRole('button', { name: 'Suggestions' }))
+
+    const codeSuggestion = within(form).getByRole('button', {
+      name: 'Suggest Code',
+    })
+    const mangaSuggestion = within(form).getByRole('button', {
+      name: 'Suggest Manga',
+    })
+
+    await user.click(codeSuggestion)
+    expect(nameInput).toHaveValue('Code')
+    expect(codeSuggestion).toHaveAttribute('aria-pressed', 'true')
+    expect(mangaSuggestion).toHaveAttribute('aria-pressed', 'false')
+
+    await user.click(mangaSuggestion)
+    expect(nameInput).toHaveValue('Manga')
+    expect(codeSuggestion).toHaveAttribute('aria-pressed', 'false')
+    expect(mangaSuggestion).toHaveAttribute('aria-pressed', 'true')
   })
 })
